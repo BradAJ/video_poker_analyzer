@@ -1,4 +1,5 @@
-from itertools import product
+from collections import Counter
+from itertools import combinations_with_replacement
 import numpy as np
 from scipy.misc import comb
 
@@ -40,94 +41,159 @@ class HandAnalyzer(object):
 
         #rewrite hand string as list of 5 cards of 2 chars
         self.hand = [hand[ind:ind+2].upper() for ind in range(0,10,2)]
+        self.__h = [(card[0], card[1]) for card in self.hand]
 
-        #generate lookup dict for accessing deck array
-        ranks = 'A23456789TJQK'
-        suits = 'CDHS'
-        cells = {}
-        for i, rank in enumerate(ranks):
-            for j, suit in enumerate(suits):
-                cells[rank+suit] = (i, j)
-        self.__c2a = cells
+        self.__ranks = 'A23456789TJQK'
+        self.__suits = 'CDHS'
 
+        self.__draws = Counter(self.__ranks*4) - Counter([c[0] for c in self.__h])
 
-        deck = np.zeros([13, 4])
-        locs = []
-        for card in self.hand:
-            locs.append(cells[card])
-            deck[cells[card]] = 1
-        self.__locs = locs
-        self.__deck = deck
-
-    def deck_array(self):
-        return self.__deck
+    def draws(self):
+        return self.__draws
 
     def hold(self, held = [True]*5):
-        arr = self.__deck.copy()
-        for loc, held_bool in zip(self.__locs, held):
-            if not held_bool:
-                arr[loc] = -1
-        return arr
-
-    def suits_held(self, deck_state):
-        """
-        returns boolean array of shape (4,), suits are in order [Clubs, Diamonds,
-        Hearts, Spades]
-        """
-        return ((deck_state == 1).sum(axis = 0) > 0) == 1
-
-    def num_ranks_unseen(self, deck_state):
-        """
-        number of ranks with all 4 suits missing from initial deal
-        """
-        return ((deck_state == 0).sum(axis = 1) == 4).sum()
-
-
-
-    def royal_flush(self, deck_state, num_discards):
-        # Not holding 2-9
-        if (deck_state[1:9,:] == 1).any():
-            return 0
-        # Holding 0 or 1 suit
-        royals = deck_state[[0,9,10,11,12], :]
-        suits = self.suits_held(royals)
-        if suits.sum() > 1:
-            return 0
-        # elif not suits.any():
-        #    return 4
-        elif suits.sum() == 1:
-            #held and discarded royal of same suit
-            if (royals[:, suits == 1] == -1).any():
-                return 0
+        held_d = {'h':[], 'd':[]}
+        for card, held_bool in zip(self.__h, held):
+            if held_bool:
+                held_d['h'].append(card)
             else:
-                return 1
-        #count suits w/o discarded high cards
+                held_d['d'].append(card)
+        return held_d
+
+
+    @staticmethod
+    def pivot_held_d(held_d):
+        ranks_suits = []
+        for key in ['h', 'd']:
+            if held_d[key] != []:
+                ranks_suits.extend(list(zip(*held_d[key])))
+            else:
+                ranks_suits.extend([(), ()])
+        return ranks_suits
+
+    def royal_flush(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        holding_2to9 = set(held_r).intersection(set('23456789')) != set()
+
+        if holding_2to9 or (len(set(held_s)) > 1):
+            return 0
+
+        discarded_royal_suits = set()
+        for card in held_d['d']:
+            if (card[0] in 'AKQJT'):
+                #check if held and discarded royal of same suit
+                #already checked for multiple held suits, hence held_s[0]
+                if (len(held_s) > 0) and (card[1] == held_s[0]):
+                    return 0
+                discarded_royal_suits.add(card[1])
+
+        if len(set(held_s)) == 1:
+            return 1
         else:
-            suits_no_discard = (royals == -1).sum(axis=0) == 0
-            return suits_no_discard.sum()
+            return 4 - len(discarded_royal_suits)
 
+    # def three_kind(self, held_d):
+    #     held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+    #     need_to_draw = Counter(self.__ranks*3) - Counter(held_r)
+    #     draw_cnt = len(held_d['d'])
+    #     ways_to_make = Counter()
 
-    def three_kind(self, deck_state, num_discards):
+    #     #ranks that can't be made into trips
+    #     kickers = Counter()
 
-        ranks_held = (deck_state == 1).sum(axis = 1)
-        if num_discards == 0:
-            #no trips or trips +
-            if (ranks_held != 3).all():
-                return 0
-            #full house
-            elif (ranks_held == 2).any():
-                return 0
+    #     # number of draw cards that can be irrelevant to making trips
+    #     num_kickers = Counter()
+    #     draw_need_diff = Counter()
+    #     for r in need_to_draw:
+    #         draw_need_diff[r] = draw_cnt - need_to_draw[r]
+    #         # if draw_need_diff < 0:
+    #         #     kickers[r] = self.__draws[r]
+    #         # else:
+    #         #     num_kickers[r] = draw_need_diff
+
+    #         ways_to_make[r] = comb(self.__draws[r], need_to_draw[r])
+
+    #     ways_cnt = 0
+    #     # for r in ways_to_make:
+    #     #     if draw_need_diff[r] < 0:
+    #     #         continue
+    #     #     elif draw_need_diff[r] == 0:
+    #     #         ways_cnt += ways_to_make[r]
+    #     #     else:
+    #     #         if r not in held_r:
+    #     #             pass
+
+    def draw_for_ranks(self, held_d, gsize = 2, cnt_held_only = False):
+        """
+        Given held cards and discards count ways to draw for pairs/3kind/4_of_a_kind
+        based on collecting them purely from draw pile or adding to the held cards
+
+        gsize: (2, 3, or 4) Size of group of cards to be made. e.g. pair = 2
+
+        cnt_held_only: (bool). True: Obtain group by adding to held cards only,
+            rather than drawing a group. e.g. a 'AA742' hand where you hold the
+            aces and count 3kinds would include the:
+            comb(9,1)*comb(4,3)+comb(3,1)*comb(3,3)=39
+            ways of drawing trips that result in a full house.
+            To avoid this, set False.
+
+        """
+
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        draw_cnt = len(held_d['d'])
+        nonheld_ranks = self.__draws.copy()
+        for r in held_r:
+            nonheld_ranks[r] = 0
+
+        nonheld_rank_grps = Counter(nonheld_ranks.values())
+        ways_cnt = 0
+
+        #add up ways of making group with all draw cards
+        if not cnt_held_only:
+            for avail, rcnt in nonheld_rank_grps.items():
+                # count ranks that we can select 3 cards from.
+                rways = rcnt * comb(avail, gsize)
+                kickers = draw_cnt - gsize
+                if kickers > 0:
+                    new_nhrg = nonheld_rank_grps.copy()
+                    new_nhrg[avail] -= 1
+                    kick_ways = self.count_ways2kick(new_nhrg,
+                                                     num_kickers = kickers)
+                else:
+                    kick_ways = 1
+                print(rcnt, avail, kick_ways, rways)
+                ways_cnt += rways * kick_ways
+
+        #add up ways of adding to the held cards
+        for r, hcnt in Counter(held_r).items():
+            needed = gsize - hcnt
+            hways = comb(self.__draws[r], needed)
+            kickers = draw_cnt - needed
+            if kickers > 0:
+                kick_ways = self.count_ways2kick(nonheld_rank_grps,
+                                                 num_kickers = kickers)
             else:
-                return 1
-        elif num_discards == 1:
-            if (ranks_held == 3).any():
-                return 11*4
-            elif (ranks_held == 2).sum() == 1:
-                (deck_state[ranks_held == 2, :] == 0) 
+                kick_ways = 1
+
+            ways_cnt += hways * kick_ways
+
+        return ways_cnt
 
 
 
-
+    @staticmethod
+    def count_ways2kick(nonheld_rank_grps, num_kickers = 1):
+        # possible combinations, if num_kickers = 2 and there are 8 ranks with 4
+        # cards to draw one elem will be (4, 4), so run counter on this to get things
+        # to work properly. then comb(8, 2)*comb(4, 1)**2
+        kick_cnt = 0
+        for suit_cnt_tup in combinations_with_replacement(nonheld_rank_grps, num_kickers):
+            multiplier = 1
+            for suit_cnt_key, cnt in Counter(suit_cnt_tup).items():
+                num_ranks = nonheld_rank_grps[suit_cnt_key]
+                multiplier *= comb(num_ranks, cnt) * suit_cnt_key ** cnt
+            kick_cnt += multiplier
+        return kick_cnt
 
 
     def analyze(self):
@@ -141,10 +207,105 @@ class HandAnalyzer(object):
                 win_count = win_counters[win](deck_state)
                 expected_val_numerator += self.payouts[win] * win_count
                 ways_to_win[win] = win_count
-
             exp_val_denom = float(comb(47, 5-sum(hold_l)))
             ways_to_win['expected_val'] = expected_val_numerator / exp_val_denom
             hand = tuple(card if held else 'X' for card, held in zip(self.hand, hold_l))
             win_props[hand] = ways_to_win
 
         return win_props
+
+
+
+
+
+
+
+
+
+
+    # def hold(self, held = [True]*5):
+    #     arr = self.__deck.copy()
+    #     for loc, held_bool in zip(self.__locs, held):
+    #         if not held_bool:
+    #             arr[loc] = -1
+    #     return arr
+    #
+    # def suits_held(self, deck_state):
+    #     """
+    #     returns boolean array of shape (4,), suits are in order [Clubs, Diamonds,
+    #     Hearts, Spades]
+    #     """
+    #     return ((deck_state == 1).sum(axis = 0) > 0) == 1
+    #
+    # def num_ranks_unseen(self, deck_state):
+    #     """
+    #     number of ranks with all 4 suits missing from initial deal
+    #     """
+    #     return ((deck_state == 0).sum(axis = 1) == 4).sum()
+    #
+    #
+    #
+    # def royal_flush(self, deck_state):
+    #     # Not holding 2-9
+    #     if (deck_state[1:9,:] == 1).any():
+    #         return 0
+    #     # Holding 0 or 1 suit
+    #     royals = deck_state[[0,9,10,11,12], :]
+    #     suits = self.suits_held(royals)
+    #     if suits.sum() > 1:
+    #         return 0
+    #     # elif not suits.any():
+    #     #    return 4
+    #     elif suits.sum() == 1:
+    #         #held and discarded royal of same suit
+    #         if (royals[:, suits == 1] == -1).any():
+    #             return 0
+    #         else:
+    #             return 1
+    #     #count suits w/o discarded high cards
+    #     else:
+    #         suits_no_discard = (royals == -1).sum(axis=0) == 0
+    #         return suits_no_discard.sum()
+    #
+    #
+    # def three_kind(self, deck_state, num_discards):
+    #
+    #     ranks_held = (deck_state == 1).sum(axis = 1)
+    #     if num_discards == 0:
+    #         #no trips or trips +
+    #         if (ranks_held != 3).all():
+    #             return 0
+    #         #full house
+    #         elif (ranks_held == 2).any():
+    #             return 0
+    #         else:
+    #             return 1
+    #     elif num_discards == 1:
+    #         if (ranks_held == 3).any():
+    #             return 11*4
+    #         elif (ranks_held == 2).sum() == 1:
+    #             (deck_state[ranks_held == 2, :] == 0)
+
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    #h1 = HandAnalyzer('ahjcts7s4h', payouts = {'royal_flush':800})
+    #print(h1.analyze())
+    #x = h1.hold([True, False, False, False, False])
+    #print(h1.pivot_held_d(h1.hold([False]*5)))
+
+    #h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800})
+    #print(h2.three_kind(h2.hold([True, True, True, False, False])))
+    #print(h2.draw_for_ranks(h2.hold([True, False, False, False, False]), gsize = 3))
+
+    #h3 = HandAnalyzer('qd9c8dacad', payouts = {'royal_flush': 800})
+    #print(h3.draw_for_ranks(h3.hold([False, False, False, True, True]), gsize = 3))
+    #this gives 1893, correct is 1854, it counts some full houses, need to check for that...
+
+    h3 = HandAnalyzer('qd9c8d6c2d', payouts = {'royal_flush': 800})
+    print(h3.draw_for_ranks(h3.hold([False, False, False, False, False]), gsize = 2))
