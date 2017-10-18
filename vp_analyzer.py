@@ -74,7 +74,7 @@ class HandAnalyzer(object):
     def royal_flush(self, held_d):
         held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
         holding_2to9 = set(held_r).intersection(set('23456789')) != set()
-
+        exp_val_denom = comb(47, 5 - len(held_r))
         if holding_2to9 or (len(set(held_s)) > 1):
             return 0
 
@@ -88,40 +88,46 @@ class HandAnalyzer(object):
                 discarded_royal_suits.add(card[1])
 
         if len(set(held_s)) == 1:
-            return 1
+            return 1, exp_val_denom
         else:
-            return 4 - len(discarded_royal_suits)
+            return 4 - len(discarded_royal_suits), exp_val_denom
 
-    # def three_kind(self, held_d):
-    #     held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-    #     need_to_draw = Counter(self.__ranks*3) - Counter(held_r)
-    #     draw_cnt = len(held_d['d'])
-    #     ways_to_make = Counter()
+    def three_kind(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        held_r_cnts = Counter(held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(held_r))
+        # nothing held
+        if held_r_cnts == []:
+            draw5 = self.draw_for_ranks(held_d, gsize=3, cnt_held_only=False)
+            return draw5, exp_val_denom
+        # most common card is a singleton
+        elif held_r_cnts[0][1] == 1:
+            draws = self.draw_for_ranks(held_d, gsize=3, cnt_held_only=False)
+            return draws, exp_val_denom
+        elif held_r_cnts[0][1] == 2:
 
-    #     #ranks that can't be made into trips
-    #     kickers = Counter()
+            #check for holding two pair, avoid counting FH
+            if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
+                return 0, 1
 
-    #     # number of draw cards that can be irrelevant to making trips
-    #     num_kickers = Counter()
-    #     draw_need_diff = Counter()
-    #     for r in need_to_draw:
-    #         draw_need_diff[r] = draw_cnt - need_to_draw[r]
-    #         # if draw_need_diff < 0:
-    #         #     kickers[r] = self.__draws[r]
-    #         # else:
-    #         #     num_kickers[r] = draw_need_diff
+            drawp = self.draw_for_ranks(held_d, gsize=3, cnt_held_only=True)
+            #if holding a pair and a 3rd card, e.g. 'AA7', drawing '77' will be
+            #counted by draw_for_ranks, but this is FH, so subtract this.
+            if (len(held_r_cnts) == 2) and (held_r_cnts[1][1] == 1):
+                rext_avail = self.__draws[held_r_cnts[1][0]]
+                return drawp - comb(rext_avail, 2), exp_val_denom
+            else:
+                return drawp, exp_val_denom
+        elif held_r_cnts[0][1] == 3:
+            #check for holding FH
+            if (len(held_r_cnts) == 2) and (held_r_cnts[1][1] == 2):
+                return 0, 1
+            else:
+                return 1, 1
+        else:
+            return 0, 1
 
-    #         ways_to_make[r] = comb(self.__draws[r], need_to_draw[r])
 
-    #     ways_cnt = 0
-    #     # for r in ways_to_make:
-    #     #     if draw_need_diff[r] < 0:
-    #     #         continue
-    #     #     elif draw_need_diff[r] == 0:
-    #     #         ways_cnt += ways_to_make[r]
-    #     #     else:
-    #     #         if r not in held_r:
-    #     #             pass
 
     def draw_for_ranks(self, held_d, gsize = 2, cnt_held_only = False):
         """
@@ -152,30 +158,37 @@ class HandAnalyzer(object):
         if not cnt_held_only:
             for avail, rcnt in nonheld_rank_grps.items():
                 # count ranks that we can select 3 cards from.
-                rways = rcnt * comb(avail, gsize)
-                kickers = draw_cnt - gsize
-                if kickers > 0:
-                    new_nhrg = nonheld_rank_grps.copy()
-                    new_nhrg[avail] -= 1
-                    kick_ways = self.count_ways2kick(new_nhrg,
-                                                     num_kickers = kickers)
+                if gsize <= draw_cnt:
+                    rways = rcnt * comb(avail, gsize)
+                    kickers = draw_cnt - gsize
+                    if kickers > 0:
+                        new_nhrg = nonheld_rank_grps.copy()
+                        new_nhrg[avail] -= 1
+                        kick_ways = self.count_ways2kick(new_nhrg,
+                                                         num_kickers = kickers)
+                    else:
+                        kick_ways = 1
+                    #print(rcnt, avail, kick_ways, rways)
+                    ways_cnt += rways * kick_ways
                 else:
-                    kick_ways = 1
-                print(rcnt, avail, kick_ways, rways)
-                ways_cnt += rways * kick_ways
+                    continue
 
         #add up ways of adding to the held cards
         for r, hcnt in Counter(held_r).items():
             needed = gsize - hcnt
-            hways = comb(self.__draws[r], needed)
-            kickers = draw_cnt - needed
-            if kickers > 0:
-                kick_ways = self.count_ways2kick(nonheld_rank_grps,
-                                                 num_kickers = kickers)
-            else:
-                kick_ways = 1
+            if needed <= draw_cnt:
+                hways = comb(self.__draws[r], needed)
+                kickers = draw_cnt - needed
+                if kickers > 0:
+                    kick_ways = self.count_ways2kick(nonheld_rank_grps,
+                                                     num_kickers = kickers)
+                else:
+                    kick_ways = 1
+                print(hcnt, kickers, kick_ways, hways)
 
-            ways_cnt += hways * kick_ways
+                ways_cnt += hways * kick_ways
+            else:
+                continue
 
         return ways_cnt
 
@@ -300,12 +313,13 @@ if __name__ == '__main__':
     #print(h1.pivot_held_d(h1.hold([False]*5)))
 
     #h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800})
-    #print(h2.three_kind(h2.hold([True, True, True, False, False])))
+    #print(h2.three_kind(h2.hold([False]*5)))
     #print(h2.draw_for_ranks(h2.hold([True, False, False, False, False]), gsize = 3))
 
     #h3 = HandAnalyzer('qd9c8dacad', payouts = {'royal_flush': 800})
     #print(h3.draw_for_ranks(h3.hold([False, False, False, True, True]), gsize = 3))
     #this gives 1893, correct is 1854, it counts some full houses, need to check for that...
-
-    h3 = HandAnalyzer('qd9c8d6c2d', payouts = {'royal_flush': 800})
-    print(h3.draw_for_ranks(h3.hold([False, False, False, False, False]), gsize = 2))
+    all_true = [True]*5
+    h3 = HandAnalyzer('qdqcqh2s2d', payouts = {'royal_flush': 800})
+    #print(h3.draw_for_ranks(h3.hold([True]*3+[False]*2), gsize = 3, cnt_held_only=True))
+    print(h3.three_kind(h3.hold([True]*5+[False]*0)))
