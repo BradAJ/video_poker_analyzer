@@ -76,7 +76,7 @@ class HandAnalyzer(object):
         holding_2to9 = set(held_r).intersection(set('23456789')) != set()
         exp_val_denom = comb(47, 5 - len(held_r))
         if holding_2to9 or (len(set(held_s)) > 1):
-            return 0
+            return 0, 1
 
         discarded_royal_suits = set()
         for card in held_d['d']:
@@ -184,7 +184,7 @@ class HandAnalyzer(object):
                                                      num_kickers = kickers)
                 else:
                     kick_ways = 1
-                print(hcnt, kickers, kick_ways, hways)
+                #print(hcnt, kickers, kick_ways, hways)
 
                 ways_cnt += hways * kick_ways
             else:
