@@ -98,7 +98,7 @@ class HandAnalyzer(object):
         exp_val_denom = comb(47, 5 - len(held_r))
         # nothing held
         if held_r_cnts == []:
-            draw5 = self.draw_for_ranks(held_d, gsize=2, cnt_held_only=False, 
+            draw5 = self.draw_for_ranks(held_d, gsize=2, cnt_held_only=False,
                                         pairing_jqka=True)
             return draw5, exp_val_denom
         # most common card is a singleton
@@ -120,6 +120,113 @@ class HandAnalyzer(object):
                     nonheld_ranks[r] = 0
                 nonheld_rank_grps = Counter(nonheld_ranks.values())
                 return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
+
+
+    def two_pair(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        held_r_cnts = Counter(held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(held_r))
+        # nothing held
+        if held_r_cnts == []:
+            # draw5 = self.draw_for_ranks(held_d, gsize=2, cnt_held_only=False,
+            #                             pairing_jqka=True)
+            pass
+        # most common card is a singleton
+        elif held_r_cnts[0][1] == 1:
+            # draws = self.draw_for_ranks(held_d, gsize=2, cnt_held_only=False,
+            #                             pairing_jqka=True)
+            # return draws, exp_val_denom
+            pass
+        elif held_r_cnts[0][1] == 2:
+
+            #check for holding two pair
+            if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
+                #find everything that DOESN't improve hand
+                #DRY this up (in three_kind too)
+                draw_cnt = len(held_d['d'])
+                nonheld_ranks = self.__draws.copy()
+                for r in held_r:
+                    nonheld_ranks[r] = 0
+                nonheld_rank_grps = Counter(nonheld_ranks.values())
+                return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
+            else:
+                #holding a pair. take it out of consideration and look for another
+
+                #copied from draw_for_ranks, incoporporate it there
+                gsize = 2
+                draw_cnt = len(held_d['d'])
+                nonheld_ranks = self.__draws - Counter({held_r_cnts[0][0]: 2})
+                for r in held_r:
+                    nonheld_ranks[r] = 0
+
+
+                nonheld_rank_grps = Counter(nonheld_ranks.values())
+                # #remove everything but JQKA if only considering those pairs
+                # if pairing_jqka:
+                #     nonheld_jqka = nonheld_ranks - Counter('23456789T'*4)
+                #     nonheld_jqka_grps = Counter(nonheld_jqka.values())
+                #     nonheld_jqka_grps
+                #     draw_grp_iter = nonheld_jqka_grps.items()
+                # else:
+                draw_grp_iter = nonheld_rank_grps.items()
+
+                ways_cnt = 0
+
+                #add up ways of making group with all draw cards
+                #if not cnt_held_only:
+                for avail, rcnt in draw_grp_iter:
+                    # count ranks that we can select 3 cards from.
+                    if gsize <= draw_cnt:
+                        rways = rcnt * comb(avail, gsize)
+                        kickers = draw_cnt - gsize
+                        if kickers > 0:
+                            new_nhrg = nonheld_rank_grps.copy()
+                            new_nhrg[avail] -= 1
+                            kick_ways = self.count_ways2kick(new_nhrg,
+                                                             num_kickers = kickers)
+                        else:
+                            kick_ways = 1
+                        #print(rcnt, avail, kick_ways, rways)
+                        ways_cnt += rways * kick_ways
+                    else:
+                        continue
+
+
+               #add up ways of adding to the held cards
+                for r, hcnt in Counter(held_r).items():
+                    #skip if only pairing up JQKA
+                    # if pairing_jqka and (r not in 'JQKA'):
+                    #     continue
+                    if hcnt == 2:
+                        continue
+
+                    needed = gsize - hcnt
+                    if needed <= draw_cnt:
+                        #hways = comb(self.__draws[r], needed)
+                        hways = comb(self.__draws[r], needed)
+
+
+                        kickers = draw_cnt - needed
+                        if kickers > 0:
+                            #double check this: nonheld_rank_grps - Counter({nonheld_ranks[r]:1})
+                            #e.g. 'AA952' hold 'AA9', ranks with 3 cards avail should be decremented by 1
+                            new_nhrg = nonheld_rank_grps - Counter({nonheld_ranks[r]:1})
+                            kick_ways = self.count_ways2kick(new_nhrg,
+                                                             num_kickers = kickers)
+                        else:
+                            kick_ways = 1
+                        #print(hcnt, kickers, kick_ways, hways)
+                        ways_cnt += hways * kick_ways
+                    else:
+                        continue
+
+
+                return ways_cnt, exp_val_denom
+
+
+
+
+
 
 
     def three_kind(self, held_d):
@@ -194,9 +301,11 @@ class HandAnalyzer(object):
         held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
         draw_cnt = len(held_d['d'])
         nonheld_ranks = self.__draws.copy()
+        ### if second_pair:
+        ###     nonheld_ranks = self.__draws - Counter({held_r_cnts[0][0]: 2})
         for r in held_r:
             nonheld_ranks[r] = 0
-        
+
 
         nonheld_rank_grps = Counter(nonheld_ranks.values())
         #remove everything but JQKA if only considering those pairs
@@ -207,7 +316,7 @@ class HandAnalyzer(object):
             draw_grp_iter = nonheld_jqka_grps.items()
         else:
             draw_grp_iter = nonheld_rank_grps.items()
-        
+
         ways_cnt = 0
 
         #add up ways of making group with all draw cards
@@ -232,7 +341,11 @@ class HandAnalyzer(object):
         #add up ways of adding to the held cards
         for r, hcnt in Counter(held_r).items():
             #skip if only pairing up JQKA
-            if pairing_jqka and (r not in 'JQKA'):
+            pair_jqka_cond = pairing_jqka and (r not in 'JQKA')
+            ### second_pair_cond = second_pair and (hcnt == 2)
+            ### if pair_jqka_cond or second_pair_cond:
+            ###     continue
+            if pair_jqka_cond:
                 continue
 
             needed = gsize - hcnt
@@ -240,8 +353,12 @@ class HandAnalyzer(object):
                 hways = comb(self.__draws[r], needed)
                 kickers = draw_cnt - needed
                 if kickers > 0:
+                    ### if not second_pair:
                     kick_ways = self.count_ways2kick(nonheld_rank_grps,
                                                      num_kickers = kickers)
+                    ### else:
+                    ###     sp_nhrg = nonheld_rank_grps - Counter({nonheld_ranks[r]:1})
+                    ###     kick_ways = self.count_ways2kick(sp_nhrg, num_kickers = kickers)
                 else:
                     kick_ways = 1
                 #print(hcnt, kickers, kick_ways, hways)
@@ -299,7 +416,7 @@ if __name__ == '__main__':
     h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800, 'three_kind': 15})
     #print(h2.three_kind(h2.hold([False]*5)))
     #print(h2.draw_for_ranks(h2.hold([True, False, False, False, False]), gsize = 2, pairing_jqka = True))
-    print(h2.four_kind(h2.hold([True]*1+[False]*4)))
+    #print(h2.four_kind(h2.hold([True]*1+[False]*4)))
 
     #h3 = HandAnalyzer('qd9c8dacad', payouts = {'royal_flush': 800})
     #print(h3.draw_for_ranks(h3.hold([False, False, False, True, True]), gsize = 3))
@@ -308,3 +425,6 @@ if __name__ == '__main__':
     #h3 = HandAnalyzer('qdqcqh2s2d', payouts = {'royal_flush': 800})
     #print(h3.draw_for_ranks(h3.hold([True]*3+[False]*2), gsize = 3, cnt_held_only=True))
     #print(h3.three_kind(h3.hold([True]*5+[False]*0)))
+
+    twop = HandAnalyzer('acad9h8s2c')
+    print(twop.two_pair(twop.hold([True]*3 + [False]*2)))
