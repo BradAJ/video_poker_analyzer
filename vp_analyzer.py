@@ -1,6 +1,5 @@
 from collections import Counter
-from itertools import combinations_with_replacement
-import numpy as np
+from itertools import combinations_with_replacement, product
 from scipy.misc import comb
 
 
@@ -211,17 +210,18 @@ class HandAnalyzer(object):
 
     def analyze(self):
         win_props = {}
-        win_counters = {'royal_flush':self.royal_flush}
+        win_counters = {'royal_flush': self.royal_flush,
+                        'three_kind': self.three_kind}
         for hold_l in product([True, False], repeat=5):
             deck_state = self.hold(held = hold_l)
             ways_to_win = {}
-            expected_val_numerator = 0
+            expected_val = 0
             for win in self.payouts:
-                win_count = win_counters[win](deck_state)
-                expected_val_numerator += self.payouts[win] * win_count
-                ways_to_win[win] = win_count
-            exp_val_denom = float(comb(47, 5-sum(hold_l)))
-            ways_to_win['expected_val'] = expected_val_numerator / exp_val_denom
+                wins_denom = win_counters[win](deck_state)
+                expected_val += self.payouts[win] * wins_denom[0] / wins_denom[1]
+                ways_to_win[win] = wins_denom
+
+            ways_to_win['expected_val'] = expected_val
             hand = tuple(card if held else 'X' for card, held in zip(self.hand, hold_l))
             win_props[hand] = ways_to_win
 
@@ -235,14 +235,15 @@ if __name__ == '__main__':
     #x = h1.hold([True, False, False, False, False])
     #print(h1.pivot_held_d(h1.hold([False]*5)))
 
-    #h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800})
+    h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800, 'three_kind': 15})
     #print(h2.three_kind(h2.hold([False]*5)))
     #print(h2.draw_for_ranks(h2.hold([True, False, False, False, False]), gsize = 3))
+    print(h2.analyze())
 
     #h3 = HandAnalyzer('qd9c8dacad', payouts = {'royal_flush': 800})
     #print(h3.draw_for_ranks(h3.hold([False, False, False, True, True]), gsize = 3))
     #this gives 1893, correct is 1854, it counts some full houses, need to check for that...
-    all_true = [True]*5
-    h3 = HandAnalyzer('qdqcqh2s2d', payouts = {'royal_flush': 800})
+    #all_true = [True]*5
+    #h3 = HandAnalyzer('qdqcqh2s2d', payouts = {'royal_flush': 800})
     #print(h3.draw_for_ranks(h3.hold([True]*3+[False]*2), gsize = 3, cnt_held_only=True))
-    print(h3.three_kind(h3.hold([True]*5+[False]*0)))
+    #print(h3.three_kind(h3.hold([True]*5+[False]*0)))
