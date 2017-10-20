@@ -114,6 +114,17 @@ class TestHandAnalyzer(unittest.TestCase):
         holdq = self.h2.hold([True] + [False]*4)
         self.assertEqual(self.h2.two_pair(holdq), (8874, comb(47, 4)))
 
+        holdq9 = self.h2.hold([True]*2 + [False]*3)
+        self.assertEqual(self.h2.two_pair(holdq9), (711, comb(47, 3)))
+
+        holdq98 = self.h2.hold([True]*3 + [False]*2)
+        self.assertEqual(self.h2.two_pair(holdq98), (27, comb(47, 2)))
+
+        holdq985 = self.h2.hold([True]*4 + [False]*1)
+        self.assertEqual(self.h2.two_pair(holdq985), (0, 1))
+
+
+
         h3hold8aa = self.h3.hold([False]*2 + [True]*3)
         self.assertEqual(self.h3.two_pair(h3hold8aa), (186, comb(47, 2)))
 

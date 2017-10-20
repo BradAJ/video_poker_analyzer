@@ -154,7 +154,7 @@ class HandAnalyzer(object):
                 return ways_cnt, exp_val_denom
 
             ##TODO: hold two non paired cards
-            ##TODO: hold three non paired cards
+            ##TODO: hold three non paired cards, and return 0, 1 for hold = 4,5
 
 
 
