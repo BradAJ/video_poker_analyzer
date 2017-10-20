@@ -106,14 +106,13 @@ class TestHandAnalyzer(unittest.TestCase):
         twop = HandAnalyzer('acad8h8s2c')
         self.assertEqual(twop.two_pair(twop.hold([True]*4 + [False])), (43, comb(47, 1)))
         self.assertEqual(twop.two_pair(twop.hold([True]*5)), (1, 1))
-        self.assertEqual(twop.two_pair(twop.hold([True]*3 + [False]*2), (None, comb(47, 2))))
-
-
-        holdq = self.h2.hold([True] + [False]*4)
-        self.assertEqual(self.h2.two_pair(holdq), (8874, comb(47, 4)))
+        self.assertEqual(twop.two_pair(twop.hold([True]*3 + [False]*2)), (149, comb(47, 2)))
 
         discard_h2 = self.h2.hold([False]*5)
         self.assertEqual(self.h2.two_pair(discard_h2), (71802, comb(47, 5)))
+
+        holdq = self.h2.hold([True] + [False]*4)
+        self.assertEqual(self.h2.two_pair(holdq), (8874, comb(47, 4)))
 
         h3hold8aa = self.h3.hold([False]*2 + [True]*3)
         self.assertEqual(self.h3.two_pair(h3hold8aa), (186, comb(47, 2)))
@@ -126,15 +125,3 @@ class TestHandAnalyzer(unittest.TestCase):
 
         fh = HandAnalyzer('qdqcqh2s2d')
         self.assertEqual(fh.two_pair(fh.hold([True]*5)), (0, 1))
-
-
-
-
-
-
-
-
-
-
-
-
