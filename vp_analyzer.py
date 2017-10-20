@@ -135,10 +135,33 @@ class HandAnalyzer(object):
             return self.draw_2pair(nonheld_rank_grps, draw_cnt = 5), exp_val_denom
         # most common card is a singleton
         elif held_r_cnts[0][1] == 1:
-            # draws = self.draw_for_ranks(held_d, gsize=2, cnt_held_only=False,
-            #                             pairing_jqka=True)
-            # return draws, exp_val_denom
-            pass
+            ways_cnt = 0
+            if len(held_r) == 1:
+                #draw two pairs from the deck
+                ways_cnt += self.draw_2pair(nonheld_rank_grps, draw_cnt = 4)
+
+                #add to the held singleton, and get another pair
+                held_c = held_r_cnts[0][0]
+                held_c_avail = self.__draws[held_c]
+                kick_ways = 0
+                for avail, rcnt in nonheld_rank_grps.items():
+                    rways = rcnt * comb(avail, 2)
+                    new_nhrg = nonheld_rank_grps.copy()
+                    new_nhrg[avail] -= 1
+                    kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
+                    ways_cnt += held_c_avail * rways * kick_ways
+
+                return ways_cnt, exp_val_denom
+
+            ##TODO: hold two non paired cards
+            ##TODO: hold three non paired cards
+
+
+
+
+
+
+
         elif held_r_cnts[0][1] == 2:
 
             #check for holding two pair
