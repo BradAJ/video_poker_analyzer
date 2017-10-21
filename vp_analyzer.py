@@ -128,9 +128,13 @@ class HandAnalyzer(object):
         held_r_cnts = Counter(held_r).most_common()
         exp_val_denom = comb(47, 5 - len(held_r))
         nonheld_ranks = self.__draws.copy()
+        held_r_avail = {}
         for r in held_r:
+            held_r_avail[r] = nonheld_ranks[r]
             nonheld_ranks[r] = 0
+
         nonheld_rank_grps = Counter(nonheld_ranks.values())
+        held_r_avail_grps = Counter(held_r_avail.values())
         draw_cnt = len(held_d['d'])
         # nothing held
         if held_r_cnts == []:
@@ -141,40 +145,35 @@ class HandAnalyzer(object):
             if draw_cnt == 4:
                 #draw two pairs from the deck
                 ways_cnt += self.draw_2pair(nonheld_rank_grps, draw_cnt = 4)
-
                 ways_cnt += self.pairup_held2pair(nonheld_rank_grps, held_r_cnts)
-                #add to the held singleton, and get another pair
-                # held_c = held_r_cnts[0][0]
-                # held_c_avail = self.__draws[held_c]
-                # kick_ways = 0
-                # for avail, rcnt in nonheld_rank_grps.items():
-                #     rways = rcnt * comb(avail, 2)
-                #     new_nhrg = nonheld_rank_grps.copy()
-                #     new_nhrg[avail] -= 1
-                #     kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
-                #     ways_cnt += held_c_avail * rways * kick_ways
 
                 return ways_cnt, exp_val_denom
-            elif draw_cnt == 3:
+            elif draw_cnt == 3: # maybe change this block to draw_cnt in [3,2]
 
+                for havail, hrcnt in held_r_avail_grps.items():
+                    #pair up a held card
+                    hrways = comb(hrcnt, 1) * comb(havail, 1)
+                    #then draw a pair
+                    drawways = self.draw_for_ranks(held_d, gsize=2,
+                                                   draw_cnt=2,
+                                                   draw_only=True,
+                                                   second_pair=False)
+                    ways_cnt += hrways * drawways
 
-                #new_nhrg = nonheld_rank_grps.copy()
+                    #draw a match for both held singles
+                    hrways2 = comb(havail, 1) ** hrcn
+                    kick_ways = self.count_ways2kick(nonheld_rank_grps,
+                                                     num_kickers=1)
+                    ways_cnt += hrways2 * kick_ways
+                return ways_cnt, exp_val_denom
+            elif draw_cnt == 2:
+                #draw a match for 2 of the 3 held singles
+                return self.draw_2pair(held_r_avail_grps, draw_cnt = 2), exp_val_denom
 
-                return self.pairup_held2pair(nonheld_rank_grps, held_r_cnts), exp_val_denom
-                # add to held unpaired cards
-            # put the block from add to held singleton, get another pair into a func.
-
-            ##TODO: hold two non paired cards
-            ##TODO: hold three non paired cards, and return 0, 1 for hold = 4,5
-
-
-
-
-
-
+            else:
+                return 0, 1
 
         elif held_r_cnts[0][1] == 2:
-
             #check for holding two pair
             if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
                 #find everything that DOESN't improve hand
@@ -184,7 +183,6 @@ class HandAnalyzer(object):
                 return (self.count_ways2kick(nonheld_rank_grps, draw_cnt),
                         exp_val_denom)
             else:
-
                 #holding a pair. take it out of consideration and look for another
                 return (self.draw_for_ranks(held_d, gsize=2, second_pair=True),
                         exp_val_denom)
@@ -195,15 +193,28 @@ class HandAnalyzer(object):
 
 
     def draw_2pair(self, nonheld_rank_grps, draw_cnt = 4):
-        if draw_cnt not in [4,5]:
-            exp = 'Need to draw 4,5 cards to get 2 pairs, draw_cnt ='
+        """
+        helper for two_pair, originally designed for drawing 2 pairs when,
+        drawing 4 or 5 cards.
+        there's a mostly symmetrical case for drawing 2 cards and holding
+        3 singletons and pairing up 2 of those. so if draw_cnt = 2 then
+        choose 1 card from the number available within a rank. adjust this with
+        the choose_in_r flag.
+        """
+        if draw_cnt in [4, 5]:
+            choose_in_r = 2
+        elif draw_cnt == 2:
+            choose_in_r = 1
+        else:
+            exp = 'Expecting to draw 2, 4, or 5 cards, draw_cnt = {}'
             raise Exception(exp.format(draw_cnt))
-        ways_cnt = 0
-        cwr = combinations_with_replacement(nonheld_rank_grps, 2)
 
+        cwr = combinations_with_replacement(nonheld_rank_grps, 2)
+        ways_cnt = 0
         for avail1, avail2 in cwr:
             if avail1 == avail2:
-                rways = comb(nonheld_rank_grps[avail1], 2) * comb(avail1, 2) ** 2
+                rways = comb(nonheld_rank_grps[avail1], 2)
+                rways *= comb(avail1, choose_in_r) ** 2
                 if draw_cnt == 5:
                     new_nhrg = nonheld_rank_grps.copy()
                     new_nhrg[avail1] -= 2
@@ -214,7 +225,7 @@ class HandAnalyzer(object):
             else:
                 mixpair = 1
                 for av in (avail1, avail2):
-                    mixpair *= nonheld_rank_grps[av] * comb(av, 2)
+                    mixpair *= nonheld_rank_grps[av] * comb(av, choose_in_r)
                 if draw_cnt == 5:
                     new_nhrg = nonheld_rank_grps.copy()
                     new_nhrg[avail1] -= 1
@@ -241,7 +252,7 @@ class HandAnalyzer(object):
                 new_nhrg[avail] -= 1
                 kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
                 ways_cnt += held_r_avail * rways * kick_ways
-                print(held_r_avail,held_r_cnts, rways, kick_ways)
+                # print(held_r_avail,held_r_cnts, rways, kick_ways)
 
         return ways_cnt
 
@@ -387,7 +398,7 @@ class HandAnalyzer(object):
     #
     #     return ways_cnt
 
-    def draw_for_ranks(self, held_d, gsize = 3, cnt_held_only = False, pairing_jqka = False, second_pair = False):
+    def draw_for_ranks(self, held_d, gsize = 3, cnt_held_only = False, pairing_jqka = False, second_pair = False, draw_cnt = None, draw_only = False):
         """
         Given held cards and discards count ways to draw for pairs/3kind/4_of_a_kind
         based on collecting them purely from draw pile or adding to the held cards
@@ -409,7 +420,9 @@ class HandAnalyzer(object):
         """
 
         held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        draw_cnt = len(held_d['d'])
+
+        draw_cnt = len(held_d['d']) if draw_cnt is None else draw_cnt
+
         #dealing with two_pair stuff
         if not second_pair:
             nonheld_ranks = self.__draws.copy()
@@ -452,31 +465,32 @@ class HandAnalyzer(object):
                     continue
 
         #add up ways of adding to the held cards
-        for r, hcnt in Counter(held_r).items():
-            #skip if only pairing up JQKA
-            pair_jqka_cond = pairing_jqka and (r not in 'JQKA')
-            second_pair_cond = second_pair and (hcnt == 2)
-            if pair_jqka_cond or second_pair_cond:
-                continue
+        if not draw_only:
+            for r, hcnt in Counter(held_r).items():
+                #skip if only pairing up JQKA
+                pair_jqka_cond = pairing_jqka and (r not in 'JQKA')
+                second_pair_cond = second_pair and (hcnt == 2)
+                if pair_jqka_cond or second_pair_cond:
+                    continue
 
-            needed = gsize - hcnt
-            if needed <= draw_cnt:
-                hways = comb(self.__draws[r], needed)
-                kickers = draw_cnt - needed
-                if kickers > 0:
-                    if not second_pair:
-                        kick_ways = self.count_ways2kick(nonheld_rank_grps,
-                                                     num_kickers = kickers)
+                needed = gsize - hcnt
+                if needed <= draw_cnt:
+                    hways = comb(self.__draws[r], needed)
+                    kickers = draw_cnt - needed
+                    if kickers > 0:
+                        if not second_pair:
+                            kick_ways = self.count_ways2kick(nonheld_rank_grps,
+                                                         num_kickers = kickers)
+                        else:
+                            sp_nhrg = nonheld_rank_grps - Counter({nonheld_ranks[r]:1})
+                            kick_ways = self.count_ways2kick(sp_nhrg, num_kickers = kickers)
                     else:
-                        sp_nhrg = nonheld_rank_grps - Counter({nonheld_ranks[r]:1})
-                        kick_ways = self.count_ways2kick(sp_nhrg, num_kickers = kickers)
-                else:
-                    kick_ways = 1
-                #print(hcnt, kickers, kick_ways, hways)
+                        kick_ways = 1
+                    #print(hcnt, kickers, kick_ways, hways)
 
-                ways_cnt += hways * kick_ways
-            else:
-                continue
+                    ways_cnt += hways * kick_ways
+                else:
+                    continue
 
         return ways_cnt
 
@@ -539,5 +553,5 @@ if __name__ == '__main__':
     twop = HandAnalyzer('acad9h8s2c')
     #print(twop.two_pair(twop.hold([True]*2 + [False]*3)))
 
-    print(h2.draw_for_ranks(h2.hold([True, T, False, False, False]), gsize = 2, second_pair = True))
+    #print(h2.draw_for_ranks(h2.hold([True, True, False, False, False]), gsize = 2, second_pair = True))
     print(h2.two_pair(h2.hold([True]*2+[False]*3)))
