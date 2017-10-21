@@ -123,13 +123,17 @@ class TestHandAnalyzer(unittest.TestCase):
         holdq985 = self.h2.hold([True]*4 + [False]*1)
         self.assertEqual(self.h2.two_pair(holdq985), (0, 1))
 
-
-
         h3hold8aa = self.h3.hold([False]*2 + [True]*3)
         self.assertEqual(self.h3.two_pair(h3hold8aa), (186, comb(47, 2)))
 
         holdaa = self.h3.hold([False]*3 + [True]*2)
         self.assertEqual(self.h3.two_pair(holdaa), (2592, comb(47, 3)))
+
+        discaa = self.h3.hold([True]*3 + [False]*2)
+        self.assertEqual(self.h3.two_pair(discaa), (27, comb(47, 2)))
+
+        hold98a = self.h3.hold([False, True, True, True, False])
+        self.assertEqual(self.h3.two_pair(hold98a), (21, comb(47, 2)))
 
         fourk = HandAnalyzer('qcqdqhqs2c')
         self.assertEqual(fourk.two_pair(fourk.hold([True]*4 + [False])), (0, 1))

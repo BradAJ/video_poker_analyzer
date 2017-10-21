@@ -2,6 +2,7 @@ from collections import Counter
 from itertools import combinations_with_replacement, product
 from scipy.misc import comb
 
+import pdb
 
 class HandAnalyzer(object):
     """
@@ -130,28 +131,38 @@ class HandAnalyzer(object):
         for r in held_r:
             nonheld_ranks[r] = 0
         nonheld_rank_grps = Counter(nonheld_ranks.values())
+        draw_cnt = len(held_d['d'])
         # nothing held
         if held_r_cnts == []:
             return self.draw_2pair(nonheld_rank_grps, draw_cnt = 5), exp_val_denom
         # most common card is a singleton
         elif held_r_cnts[0][1] == 1:
             ways_cnt = 0
-            if len(held_r) == 1:
+            if draw_cnt == 4:
                 #draw two pairs from the deck
                 ways_cnt += self.draw_2pair(nonheld_rank_grps, draw_cnt = 4)
 
+                ways_cnt += self.pairup_held2pair(nonheld_rank_grps, held_r_cnts)
                 #add to the held singleton, and get another pair
-                held_c = held_r_cnts[0][0]
-                held_c_avail = self.__draws[held_c]
-                kick_ways = 0
-                for avail, rcnt in nonheld_rank_grps.items():
-                    rways = rcnt * comb(avail, 2)
-                    new_nhrg = nonheld_rank_grps.copy()
-                    new_nhrg[avail] -= 1
-                    kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
-                    ways_cnt += held_c_avail * rways * kick_ways
+                # held_c = held_r_cnts[0][0]
+                # held_c_avail = self.__draws[held_c]
+                # kick_ways = 0
+                # for avail, rcnt in nonheld_rank_grps.items():
+                #     rways = rcnt * comb(avail, 2)
+                #     new_nhrg = nonheld_rank_grps.copy()
+                #     new_nhrg[avail] -= 1
+                #     kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
+                #     ways_cnt += held_c_avail * rways * kick_ways
 
                 return ways_cnt, exp_val_denom
+            elif draw_cnt == 3:
+
+
+                #new_nhrg = nonheld_rank_grps.copy()
+
+                return self.pairup_held2pair(nonheld_rank_grps, held_r_cnts), exp_val_denom
+                # add to held unpaired cards
+            # put the block from add to held singleton, get another pair into a func.
 
             ##TODO: hold two non paired cards
             ##TODO: hold three non paired cards, and return 0, 1 for hold = 4,5
@@ -218,7 +229,21 @@ class HandAnalyzer(object):
         return ways_cnt
 
 
+    def pairup_held2pair(self, nonheld_rank_grps, held_r_cnts):
+        ways_cnt = 0
+        for r, rcnt in held_r_cnts:
 
+            held_r_avail = self.__draws[r]
+            kick_ways = 0
+            for avail, rcnt in nonheld_rank_grps.items():
+                rways = rcnt * comb(avail, 2)
+                new_nhrg = nonheld_rank_grps.copy()
+                new_nhrg[avail] -= 1
+                kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
+                ways_cnt += held_r_avail * rways * kick_ways
+                print(held_r_avail,held_r_cnts, rways, kick_ways)
+
+        return ways_cnt
 
 
 
@@ -514,5 +539,5 @@ if __name__ == '__main__':
     twop = HandAnalyzer('acad9h8s2c')
     #print(twop.two_pair(twop.hold([True]*2 + [False]*3)))
 
-    #print(h2.draw_for_ranks(h2.hold([True, False, False, False, False]), gsize = 2, second_pair = True))
-    print(h2.two_pair(h2.hold([False]*5)))
+    print(h2.draw_for_ranks(h2.hold([True, T, False, False, False]), gsize = 2, second_pair = True))
+    print(h2.two_pair(h2.hold([True]*2+[False]*3)))
