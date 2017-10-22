@@ -135,10 +135,54 @@ class TestHandAnalyzer(unittest.TestCase):
         discaa = self.h3.hold([True]*3 + [False]*2)
         self.assertEqual(self.h3.two_pair(discaa), (27, comb(47, 2)))
 
-
-
         fourk = HandAnalyzer('qcqdqhqs2c')
         self.assertEqual(fourk.two_pair(fourk.hold([True]*4 + [False])), (0, 1))
 
         fh = HandAnalyzer('qdqcqh2s2d')
         self.assertEqual(fh.two_pair(fh.hold([True]*5)), (0, 1))
+
+    def test_full_house(self):
+        discard_h2 = self.h2.hold([False]*5)
+        self.assertEqual(self.h2.full_house(discard_h2), (2124, comb(47, 5)))
+
+        holdq = self.h2.hold([True] + [False]*4)
+        self.assertEqual(self.h2.full_house(holdq), (288, comb(47, 4)))
+
+        holdq9 = self.h2.hold([True]*2 + [False]*3)
+        self.assertEqual(self.h2.full_house(holdq9), (18, comb(47, 3)))
+
+        holdq98 = self.h2.hold([True]*3 + [False]*2)
+        self.assertEqual(self.h2.full_house(holdq98), (0, 1))
+
+        holdaa = self.h3.hold([False]*3 + [True]*2)
+        self.assertEqual(self.h3.full_house(holdaa), (165, comb(47, 3)))
+
+        h3hold8aa = self.h3.hold([False]*2 + [True]*3)
+        self.assertEqual(self.h3.full_house(h3hold8aa), (9, comb(47, 2)))
+
+        trips = HandAnalyzer('qcqdqh7c2d')
+        tripsonly = trips.hold([True]*3+[False]*2)
+        self.assertEqual(trips.full_house(tripsonly), (66, comb(47, 2)))
+        tripsp1 = trips.hold([True]*4+[False])
+        self.assertEqual(trips.full_house(tripsp1), (3, comb(47, 1)))
+
+        twop = HandAnalyzer('acad8h8s2c')
+        self.assertEqual(twop.full_house(twop.hold([True]*4 + [False])), (4, comb(47, 1)))
+
+        fh = HandAnalyzer('qdqcqh2s2d')
+        self.assertEqual(fh.full_house(fh.hold([True]*5)), (1, 1))
+        self.assertEqual(fh.full_house(fh.hold([True]*4 + [False])), (2, comb(47, 1)))
+
+
+    def test_straight(self):
+        discard_h2 = self.h2.hold([False]*5)
+        self.assertEqual(self.h2.straight(discard_h2), (5856, comb(47, 5)))
+
+        holdq = self.h2.hold([True] + [False]*4)
+        self.assertEqual(self.h2.straight(holdq), (589, comb(47, 4)))
+
+        holdq9 = self.h2.hold([True]*2 + [False]*3)
+        self.assertEqual(self.h2.straight(holdq9), (112, comb(47, 3)))
+
+        holdq98 = self.h2.hold([True]*3 + [False]*2)
+        self.assertEqual(self.h2.straight(holdq98), (None, 1))

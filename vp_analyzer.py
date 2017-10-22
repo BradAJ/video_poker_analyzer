@@ -4,6 +4,10 @@ from scipy.misc import comb
 
 import pdb
 
+## TODO: refactor so that a hand w/ discards is its own class w/ attrs like:
+## nonheld_rank_grps, held_r etc.
+## TODO: refactor draw_for_ranks to take a nonheld_rank_grps input instead of held_d
+
 class HandAnalyzer(object):
     """
     Given a string of the form 'ac2d9htskc' treat that as a 5 card poker hand:
@@ -130,7 +134,7 @@ class HandAnalyzer(object):
         nonheld_ranks = self.__draws.copy()
         held_r_avail = {}
         for r in held_r:
-            held_r_avail[r] = nonheld_ranks[r]
+            held_r_avail[r] = self.__draws[r]
             nonheld_ranks[r] = 0
 
         nonheld_rank_grps = Counter(nonheld_ranks.values())
@@ -149,13 +153,13 @@ class HandAnalyzer(object):
 
                 #pair up held singleton, draw a pair
                 #TODO: possibly replace this block with a call to draw_for_ranks?
-                held_r_avail = self.__draws[r]
+                held_draws = list(held_r_avail.values())[0] # ok since only holding 1
                 for avail, rcnt in nonheld_rank_grps.items():
                     rways = rcnt * comb(avail, 2)
                     new_nhrg = nonheld_rank_grps.copy()
                     new_nhrg[avail] -= 1
                     kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
-                    ways_cnt += held_r_avail * rways * kick_ways
+                    ways_cnt += held_draws * rways * kick_ways
 
                 return ways_cnt, exp_val_denom
             elif draw_cnt == 3: # maybe change this block to draw_cnt in [3,2]
@@ -289,6 +293,108 @@ class HandAnalyzer(object):
         else:
             return 0, 1
 
+    def full_house(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        held_r_cnts = Counter(held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(held_r))
+        nonheld_ranks = self.__draws.copy()
+        held_r_avail = {}
+        for r in held_r:
+            held_r_avail[r] = self.__draws[r]
+            nonheld_ranks[r] = 0
+
+        nonheld_rank_grps = Counter(nonheld_ranks.values())
+        held_r_avail_grps = Counter(held_r_avail.values())
+        draw_cnt = len(held_d['d'])
+
+        ways_cnt = 0
+        # nothing held
+        if held_r_cnts == []:
+            for avail, rcnt in nonheld_rank_grps.items():
+
+                rtrips = rcnt * comb(avail, 3)
+                new_nhrg = nonheld_rank_grps.copy()
+                new_nhrg[avail] -= 1
+
+                pair_ways = 0
+                for pavail, prcnt in new_nhrg.items():
+                    pair_ways += prcnt * comb(pavail, 2)
+
+                ways_cnt += rtrips * pair_ways
+            return ways_cnt, exp_val_denom
+
+        # most common card is a singleton
+        elif held_r_cnts[0][1] == 1:
+
+            if draw_cnt == 4:
+                held_draws = list(held_r_avail.values())[0] # ok since only holding 1
+                for heldneed, drawneed in [[1, 3], [2, 2]]:
+                    up_held = comb(held_draws, heldneed)
+                    draw_grp = self.draw_for_ranks(held_d, gsize = drawneed,
+                                                   draw_cnt=drawneed, draw_only=True)
+                    ways_cnt += up_held * draw_grp
+
+                return ways_cnt, exp_val_denom
+
+            elif draw_cnt == 3:
+                avail1, avail2 = list(held_r_avail.values())
+                ways_cnt += comb(avail1, 2) * comb(avail2, 1)
+                ways_cnt += comb(avail1, 1) * comb(avail2, 2)
+
+                return ways_cnt, exp_val_denom
+
+            else:
+                return 0, 1
+
+        elif held_r_cnts[0][1] == 2:
+            if draw_cnt in [3, 2]:
+                #tripup held pair
+                held_draws = self.__draws[held_r_cnts[0][0]]
+                tripup_pair = comb(held_draws, 1)
+                if draw_cnt == 3:
+                    #draw trips to go with pair
+                    ways_cnt += self.draw_for_ranks(held_d, gsize=3, draw_cnt=3,
+                                                    draw_only=True)
+                    #draw pair to go with tripup pair
+                    draws = self.draw_for_ranks(held_d, gsize=2, draw_cnt=2,
+                                                draw_only=True)
+                elif draw_cnt == 2:
+                    sing_avail = self.__draws[held_r_cnts[1][0]]
+                    #trip up held singleton
+                    ways_cnt += comb(sing_avail, 2)
+                    #pair up held singleton
+                    draws = comb(sing_avail, 1)
+
+                ways_cnt += tripup_pair * draws
+
+                return ways_cnt, exp_val_denom
+            elif draw_cnt == 1:
+                #check for holding two pair
+                if held_r_cnts[1][1] == 2:
+                    return sum(held_r_avail.values()), exp_val_denom
+                else:
+                    return 0, 1
+            else:
+                return 0, 1
+        elif held_r_cnts[0][1] == 3:
+            #draw pair with trips,
+            if draw_cnt == 2:
+                draw_pair = self.draw_for_ranks(held_d, gsize=2, draw_cnt=2,
+                                                draw_only=True)
+                return draw_pair, exp_val_denom
+            #trips + pairup held singleton
+            elif draw_cnt == 1:
+                # count avail cards to pairup held singleton
+                return comb(self.__draws[held_r_cnts[1][0]], 1), exp_val_denom
+            elif draw_cnt == 0 and held_r_cnts[1][1] == 2:
+                #holding FH
+                return 1, 1
+            else:
+                return 0, 1
+
+        else:
+            return 0, 1
+
 
     def four_kind(self, held_d):
         held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
@@ -299,6 +405,29 @@ class HandAnalyzer(object):
         draw = self.draw_for_ranks(held_d, gsize=4, cnt_held_only=False)
         return draw, exp_val_denom
 
+
+    # def straight(self, held_d):
+    #     held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+    #     held_r_cnts = Counter(held_r).most_common()
+    #     exp_val_denom = comb(47, 5 - len(held_r))
+    #     straight_ranks = 'A23456789TJQKA'
+    #     strts = [straight_ranks[ind:ind+5] for ind in range(10)]
+    #     ways_cnt = 0
+    #     if held_r_cnts == []:
+    #         for s in strts:
+    #             ways_cnt += self.prod_list([self.__draws[r] for r in s])
+    #         return ways_cnt, exp_val_denom
+    #     elif held_r_cnts[0][1] != 1:
+    #         #holding a pair or more
+    #         return 0, 1
+    #     else:
+    #
+    # @staticmethod
+    # def prod_list(lst):
+    #     accum = 1
+    #     for el in lst:
+    #         accum *= el
+    #     return accum
 
     def draw_for_ranks(self, held_d, gsize = 3, cnt_held_only = False, pairing_jqka = False, second_pair = False, draw_cnt = None, draw_only = False):
         """
