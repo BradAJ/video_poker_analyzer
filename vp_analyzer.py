@@ -49,6 +49,8 @@ class HandAnalyzer(object):
 
         self.__ranks = 'A23456789TJQK'
         self.__suits = 'CDHS'
+        straight_ranks = 'A23456789TJQKA'
+        self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
 
         self.__draws = Counter(self.__ranks*4) - Counter([c[0] for c in self.__h])
 
@@ -95,6 +97,63 @@ class HandAnalyzer(object):
             return 1, exp_val_denom
         else:
             return 4 - len(discarded_royal_suits), exp_val_denom
+
+    def straight_flush(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        ways_cnt = 0
+
+        if len(set(held_s)) > 1:
+            return 0, 1
+        exp_val_denom = comb(47, 5 - len(held_r))
+
+
+        #use defaultdict?
+        undrawable_suits = {r: set() for r in 'A23456789TJQK'}
+        for hd in held_d:
+            for r, s in held_d[hd]:
+                if hd == 'd':
+                    undrawable_suits[r].add(s)
+                elif hd == 'h':
+                    # 3 of 4 suits become undrawable when 1 is held
+                    converse = {'C','D','H','S'}.difference(s)
+                    undrawable_suits[r].update(converse)
+                else:
+                    raise Exception('held_d has unexpected key: {}'.format(hd))
+        po_strts, _ = self.potential_straights(held_r, include_royals = False)
+        for strt in po_strts:
+            if strt is not None:
+                strt_miss_suits = set()
+                for r in strt:
+                    strt_miss_suits.update(undrawable_suits[r])
+                ways_cnt += 4 - len(strt_miss_suits)
+
+        return ways_cnt, exp_val_denom
+
+
+    def flush(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        num_suits = len(set(held_s))
+        if num_suits > 1:
+            return 0, 1
+        exp_val_denom = comb(47, 5 - len(held_r))
+
+        ways_cnt = 0
+        ways_cnt -= self.royal_flush(held_d)[0]
+        ways_cnt -= self.straight_flush(held_d)[0]
+
+        #use defaultdict
+        undrawable_suit_cnt = {s:0 for s in 'CDHS'}
+        for _, suit in self.__h:
+            undrawable_suit_cnt[suit] += 1
+
+        if num_suits == 1:
+            ways_cnt += comb(13 - undrawable_suit_cnt[held_s[0]], len(disc_r))
+        else: #no saved cards
+            for suit, udc in undrawable_suit_cnt.items():
+                ways_cnt += comb(13 - udc, len(disc_r))
+
+        return ways_cnt, exp_val_denom
+
 
 
     def pair_jqka(self, held_d):
@@ -406,28 +465,61 @@ class HandAnalyzer(object):
         return draw, exp_val_denom
 
 
-    # def straight(self, held_d):
-    #     held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-    #     held_r_cnts = Counter(held_r).most_common()
-    #     exp_val_denom = comb(47, 5 - len(held_r))
-    #     straight_ranks = 'A23456789TJQKA'
-    #     strts = [straight_ranks[ind:ind+5] for ind in range(10)]
-    #     ways_cnt = 0
-    #     if held_r_cnts == []:
-    #         for s in strts:
-    #             ways_cnt += self.prod_list([self.__draws[r] for r in s])
-    #         return ways_cnt, exp_val_denom
-    #     elif held_r_cnts[0][1] != 1:
-    #         #holding a pair or more
-    #         return 0, 1
-    #     else:
-    #
-    # @staticmethod
-    # def prod_list(lst):
-    #     accum = 1
-    #     for el in lst:
-    #         accum *= el
-    #     return accum
+    def straight(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        held_r_cnts = Counter(held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(held_r))
+
+        ways_cnt = 0
+        #subtract royal and straight flush from the count
+        ways_cnt -= self.royal_flush(held_d)[0]
+        ways_cnt -= self.straight_flush(held_d)[0]
+        if held_r_cnts == []:
+            for s in self.__strts:
+                ways_cnt += self.prod_list([self.__draws[r] for r in s])
+            return ways_cnt, exp_val_denom
+        elif held_r_cnts[0][1] != 1:
+            #holding a pair or more
+            return 0, 1
+        else:
+            strts_cop, draws_cop = self.potential_straights(held_r)
+            for sc in strts_cop:
+                if sc is not None:
+                    ways_cnt += self.prod_list([draws_cop[r] for r in sc])
+
+            return ways_cnt, exp_val_denom
+
+
+    def potential_straights(self, held_r, include_royals = True):
+        """
+        Switches the strings in list of strings representing straights
+        e.g. 'A2345', '789TJ' to None if holding a card that is not in
+        the given straight. Also sets the draws for that rank to 1.
+        Returns these.
+        """
+        if include_royals:
+            strts_cop = self.__strts[:]
+            enum_strts = list(enumerate(self.__strts))
+        else:
+            strts_cop = self.__strts[:-1]
+            enum_strts = list(enumerate(self.__strts[:-1]))
+
+        draws_cop = self.__draws.copy()
+        for r in held_r:
+            draws_cop[r] = 1
+            for ind, strt in enum_strts:
+                if r not in strt:
+                    strts_cop[ind] = None
+        return strts_cop, draws_cop
+
+
+
+    @staticmethod
+    def prod_list(lst):
+        accum = 1
+        for el in lst:
+            accum *= el
+        return accum
 
     def draw_for_ranks(self, held_d, gsize = 3, cnt_held_only = False, pairing_jqka = False, second_pair = False, draw_cnt = None, draw_only = False):
         """
@@ -585,4 +677,5 @@ if __name__ == '__main__':
     #print(twop.two_pair(twop.hold([True]*2 + [False]*3)))
 
     #print(h2.draw_for_ranks(h2.hold([True, True, False, False, False]), gsize = 2, second_pair = True))
-    print(h2.two_pair(h2.hold([True]*2+[False]*3)))
+    #print(h2.two_pair(h2.hold([True]*2+[False]*3)))
+    print(h2.potential_straights(['Q','9']))

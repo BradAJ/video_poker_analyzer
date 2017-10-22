@@ -176,13 +176,47 @@ class TestHandAnalyzer(unittest.TestCase):
 
     def test_straight(self):
         discard_h2 = self.h2.hold([False]*5)
-        self.assertEqual(self.h2.straight(discard_h2), (5856, comb(47, 5)))
+        self.assertEqual(self.h2.straight(discard_h2), (5832, comb(47, 5)))
 
         holdq = self.h2.hold([True] + [False]*4)
-        self.assertEqual(self.h2.straight(holdq), (589, comb(47, 4)))
+        self.assertEqual(self.h2.straight(holdq), (590, comb(47, 4)))
 
         holdq9 = self.h2.hold([True]*2 + [False]*3)
         self.assertEqual(self.h2.straight(holdq9), (112, comb(47, 3)))
 
         holdq98 = self.h2.hold([True]*3 + [False]*2)
-        self.assertEqual(self.h2.straight(holdq98), (None, 1))
+        self.assertEqual(self.h2.straight(holdq98), (16, comb(47, 2)))
+
+    def test_straight_flush(self):
+        discard_h2 = self.h2.hold([False]*5)
+        self.assertEqual(self.h2.straight_flush(discard_h2), (21, comb(47, 5)))
+
+        holdq = self.h2.hold([True] + [False]*4)
+        self.assertEqual(self.h2.straight_flush(holdq), (1, comb(47, 4)))
+
+        h1aj = self.h1.hold([True]*2+[False]*3)
+        self.assertEqual(self.h1.straight_flush(h1aj), (0, 1))
+
+        junk = HandAnalyzer('ts9c8d5c2h')
+        junkd = junk.hold([False]*5)
+        self.assertEqual(junk.straight_flush(junkd), (16, comb(47, 5)))
+        junkt = junk.hold([True]+[False]*4)
+        self.assertEqual(junk.straight_flush(junkt), (4, comb(47, 4)))
+        junk8 = junk.hold([False, False, True, False, False])
+        self.assertEqual(junk.straight_flush(junk8), (5, comb(47, 4)))
+
+    def test_flush(self):
+        holdq = self.h2.hold([True] + [False]*4)
+        self.assertEqual(self.h2.flush(holdq), (328, comb(47, 4)))
+
+        holdq9 = self.h2.hold([True]*2 + [False]*3)
+        self.assertEqual(self.h2.flush(holdq9), (0, 1))
+
+        holdq8 = self.h2.hold([True, False, True, False, False])
+        self.assertEqual(self.h2.flush(holdq8), (164, comb(47, 3)))
+
+        junk = HandAnalyzer('ts9c8d5c2h')
+        junkd = junk.hold([False]*5)
+        self.assertEqual(junk.flush(junkd), (2819, comb(47, 5)))
+        junkt = junk.hold([True]+[False]*4)
+        self.assertEqual(junk.flush(junkt), (490, comb(47, 4)))
