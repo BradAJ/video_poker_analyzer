@@ -2,7 +2,7 @@ from collections import Counter
 from itertools import combinations_with_replacement, product
 from scipy.misc import comb
 
-import pdb
+
 
 ## TODO: refactor so that a hand w/ discards is its own class w/ attrs like:
 ## nonheld_rank_grps, held_r etc.
@@ -17,8 +17,8 @@ class HandAnalyzer(object):
     combination of the 5 cards. Optionally input a payout table as a dictionary
     of the form below. The default payout table is from "9-6 Jacks or Better"
     Video Poker.
-    payouts = {'pair_jqka': 1, '2_pair': 2, '3_of_a_kind': 3,
-               'straight': 4, 'flush': 6, 'full_house': 9, '4_of_a_kind': 25,
+    payouts = {'pair_jqka': 1, 'two_pair': 2, 'three_kind': 3,
+               'straight': 4, 'flush': 6, 'full_house': 9, 'four_kind': 25,
                'straight_flush': 50, 'royal_flush': 800}
 
     To Do: add wild card functionality for versions like Deuces Wild, Jokers.
@@ -90,7 +90,7 @@ class HandAnalyzer(object):
                 #check if held and discarded royal of same suit
                 #already checked for multiple held suits, hence held_s[0]
                 if (len(held_s) > 0) and (card[1] == held_s[0]):
-                    return 0
+                    return 0, 1
                 discarded_royal_suits.add(card[1])
 
         if len(set(held_s)) == 1:
@@ -636,7 +636,14 @@ class HandAnalyzer(object):
     def analyze(self):
         win_props = {}
         win_counters = {'royal_flush': self.royal_flush,
-                        'three_kind': self.three_kind}
+                        'straight_flush': self.straight_flush,
+                        'four_kind': self.four_kind,
+                        'full_house': self.full_house,
+                        'flush': self.flush,
+                        'straight': self.straight,
+                        'three_kind': self.three_kind,
+                        'two_pair': self.two_pair,
+                        'pair_jqka': self.pair_jqka}
         for hold_l in product([True, False], repeat=5):
             deck_state = self.hold(held = hold_l)
             ways_to_win = {}
@@ -660,7 +667,7 @@ if __name__ == '__main__':
     #x = h1.hold([True, False, False, False, False])
     #print(h1.pivot_held_d(h1.hold([False]*5)))
 
-    h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800, 'three_kind': 15})
+    #h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800, 'three_kind': 15})
     #print(h2.three_kind(h2.hold([False]*5)))
     #print(h2.draw_for_ranks(h2.hold([True, False, False, False, False]), gsize = 2, pairing_jqka = True))
     #print(h2.four_kind(h2.hold([True]*1+[False]*4)))
@@ -673,9 +680,12 @@ if __name__ == '__main__':
     #print(h3.draw_for_ranks(h3.hold([True]*3+[False]*2), gsize = 3, cnt_held_only=True))
     #print(h3.three_kind(h3.hold([True]*5+[False]*0)))
 
-    twop = HandAnalyzer('acad9h8s2c')
+    #twop = HandAnalyzer('acad9h8s2c')
     #print(twop.two_pair(twop.hold([True]*2 + [False]*3)))
 
     #print(h2.draw_for_ranks(h2.hold([True, True, False, False, False]), gsize = 2, second_pair = True))
     #print(h2.two_pair(h2.hold([True]*2+[False]*3)))
-    print(h2.potential_straights(['Q','9']))
+    #print(h2.potential_straights(['Q','9']))
+
+    junk = HandAnalyzer('ts9c8d5c2h')
+    #print(junk.analyze())

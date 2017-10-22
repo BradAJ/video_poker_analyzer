@@ -15,6 +15,7 @@ class TestHandAnalyzer(unittest.TestCase):
 
         self.h2 = HandAnalyzer('qd9c8d5c2c')
         self.h3 = HandAnalyzer('qd9c8dacad')
+        self.junk = HandAnalyzer('ts9c8d5c2h')
 
 
     def test_draws(self):
@@ -197,13 +198,13 @@ class TestHandAnalyzer(unittest.TestCase):
         h1aj = self.h1.hold([True]*2+[False]*3)
         self.assertEqual(self.h1.straight_flush(h1aj), (0, 1))
 
-        junk = HandAnalyzer('ts9c8d5c2h')
-        junkd = junk.hold([False]*5)
-        self.assertEqual(junk.straight_flush(junkd), (16, comb(47, 5)))
-        junkt = junk.hold([True]+[False]*4)
-        self.assertEqual(junk.straight_flush(junkt), (4, comb(47, 4)))
-        junk8 = junk.hold([False, False, True, False, False])
-        self.assertEqual(junk.straight_flush(junk8), (5, comb(47, 4)))
+        #junk = HandAnalyzer('ts9c8d5c2h')
+        junkd = self.junk.hold([False]*5)
+        self.assertEqual(self.junk.straight_flush(junkd), (16, comb(47, 5)))
+        junkt = self.junk.hold([True]+[False]*4)
+        self.assertEqual(self.junk.straight_flush(junkt), (4, comb(47, 4)))
+        junk8 = self.junk.hold([False, False, True, False, False])
+        self.assertEqual(self.junk.straight_flush(junk8), (5, comb(47, 4)))
 
     def test_flush(self):
         holdq = self.h2.hold([True] + [False]*4)
@@ -215,8 +216,31 @@ class TestHandAnalyzer(unittest.TestCase):
         holdq8 = self.h2.hold([True, False, True, False, False])
         self.assertEqual(self.h2.flush(holdq8), (164, comb(47, 3)))
 
-        junk = HandAnalyzer('ts9c8d5c2h')
-        junkd = junk.hold([False]*5)
-        self.assertEqual(junk.flush(junkd), (2819, comb(47, 5)))
-        junkt = junk.hold([True]+[False]*4)
-        self.assertEqual(junk.flush(junkt), (490, comb(47, 4)))
+        #junk = HandAnalyzer('ts9c8d5c2h')
+        junkd = self.junk.hold([False]*5)
+        self.assertEqual(self.junk.flush(junkd), (2819, comb(47, 5)))
+        junkt = self.junk.hold([True]+[False]*4)
+        self.assertEqual(self.junk.flush(junkt), (490, comb(47, 4)))
+
+    def test_analyze(self):
+        #based on results from: https://www.videopokertrainer.org/calculator/
+        junk_plays = self.junk.analyze()
+        exp_val_discardjunk = junk_plays[('X','X','X','X','X')]['expected_val']
+        self.assertEqual(round(exp_val_discardjunk, 5), round(0.35843407071, 5))
+
+        exp_val_holdt = junk_plays[('TS', 'X', 'X', 'X', 'X')]['expected_val']
+        self.assertEqual(round(exp_val_holdt, 5), round(0.32971715302, 5))
+
+        h2_plays = self.h2.analyze()
+        exp_val_holdq = h2_plays[('QD', 'X', 'X', 'X', 'X')]['expected_val']
+        self.assertEqual(round(exp_val_holdq, 5), round(0.4741961707734, 5))
+
+        exp_val_holdq8 = h2_plays[('QD', 'X', '8D', 'X', 'X')]['expected_val']
+        self.assertEqual(round(exp_val_holdq8, 5), round(0.41036077705827, 5))
+
+        h3_plays = self.h3.analyze()
+        exp_val_holdaa = h3_plays[('X', 'X', 'X', 'AC', 'AD')]['expected_val']
+        self.assertEqual(round(exp_val_holdaa, 5), round(1.536540240518, 5))
+
+        exp_val_holdaa8 = h3_plays[('X', 'X', '8D', 'AC', 'AD')]['expected_val']
+        self.assertEqual(round(exp_val_holdaa8, 5), round(1.4162812210915, 5))
