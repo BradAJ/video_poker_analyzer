@@ -171,19 +171,22 @@ class HandAnalyzer(object):
                                         pairing_jqka=True)
             return draws, exp_val_denom
         elif held_r_cnts[0][1] == 2:
-
+            #check for holding low pair
+            lows = '23456789T'
+            low_pair_bool = held_r_cnts[0][0] in lows
             #check for holding two pair
-            if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
+            two_pair_bool = (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2)
+            if low_pair_bool or two_pair_bool:
                 return 0, 1
-            else:
-                #find everything that DOESN't improve hand
-                #DRY this up (in three_kind too)
-                draw_cnt = len(held_d['d'])
-                nonheld_ranks = self.__draws.copy()
-                for r in held_r:
-                    nonheld_ranks[r] = 0
-                nonheld_rank_grps = Counter(nonheld_ranks.values())
-                return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
+
+            #holding pair of jkqa find everything that DOESN't improve hand
+            #DRY this up (in three_kind too)
+            draw_cnt = len(held_d['d'])
+            nonheld_ranks = self.__draws.copy()
+            for r in held_r:
+                nonheld_ranks[r] = 0
+            nonheld_rank_grps = Counter(nonheld_ranks.values())
+            return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
 
 
     def two_pair(self, held_d):
@@ -561,7 +564,6 @@ class HandAnalyzer(object):
         if pairing_jqka:
             nonheld_jqka = nonheld_ranks - Counter('23456789T'*4)
             nonheld_jqka_grps = Counter(nonheld_jqka.values())
-            nonheld_jqka_grps
             draw_grp_iter = nonheld_jqka_grps.items()
         else:
             draw_grp_iter = nonheld_rank_grps.items()

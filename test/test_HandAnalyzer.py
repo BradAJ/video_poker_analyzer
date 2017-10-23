@@ -84,6 +84,10 @@ class TestHandAnalyzer(unittest.TestCase):
         nohi = HandAnalyzer('td9c8d5c2c')
         self.assertEqual(nohi.pair_jqka(nohi.hold([False]*5)), (241680, comb(47, 5)))
 
+        lowp = HandAnalyzer('qcjckdtdth')
+        self.assertEqual(lowp.pair_jqka(lowp.hold([True]*4+[False])), (9, comb(47, 1)))
+
+
     def test_four_kind(self):
         holdaa = self.h3.hold([False]*3 + [True]*2)
         self.assertEqual(self.h3.four_kind(holdaa), (45, comb(47, 3)))
@@ -244,3 +248,7 @@ class TestHandAnalyzer(unittest.TestCase):
 
         exp_val_holdaa8 = h3_plays[('X', 'X', '8D', 'AC', 'AD')]['expected_val']
         self.assertEqual(round(exp_val_holdaa8, 5), round(1.4162812210915, 5))
+
+        lowp = HandAnalyzer('qcjckdtdth').analyze()
+        exp_val_qjkt = lowp[('QC', 'JC', 'KD', 'TD', 'X')]['expected_val']
+        self.assertEqual(round(exp_val_qjkt, 3), round(4.362/5, 3))
