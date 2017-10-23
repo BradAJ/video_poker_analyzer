@@ -87,6 +87,9 @@ class TestHandAnalyzer(unittest.TestCase):
         lowp = HandAnalyzer('qcjckdtdth')
         self.assertEqual(lowp.pair_jqka(lowp.hold([True]*4+[False])), (9, comb(47, 1)))
 
+        threek = HandAnalyzer('4h4c5h3h4s')
+        self.assertEqual(threek.pair_jqka(threek.hold([True]*5)), (0, 1))
+
 
     def test_four_kind(self):
         holdaa = self.h3.hold([False]*3 + [True]*2)

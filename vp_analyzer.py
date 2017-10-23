@@ -187,6 +187,8 @@ class HandAnalyzer(object):
                 nonheld_ranks[r] = 0
             nonheld_rank_grps = Counter(nonheld_ranks.values())
             return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
+        else:
+            return 0, 1 
 
 
     def two_pair(self, held_d):
