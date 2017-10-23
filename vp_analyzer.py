@@ -188,7 +188,7 @@ class HandAnalyzer(object):
             nonheld_rank_grps = Counter(nonheld_ranks.values())
             return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
         else:
-            return 0, 1 
+            return 0, 1
 
 
     def two_pair(self, held_d):
@@ -658,7 +658,7 @@ class HandAnalyzer(object):
                 ways_to_win[win] = wins_denom
 
             ways_to_win['expected_val'] = expected_val
-            hand = tuple(card if held else 'X' for card, held in zip(self.hand, hold_l))
+            hand = tuple(card if held else 'XX' for card, held in zip(self.hand, hold_l))
             win_props[hand] = ways_to_win
 
         return win_props
@@ -693,3 +693,6 @@ if __name__ == '__main__':
 
     junk = HandAnalyzer('ts9c8d5c2h')
     #print(junk.analyze())
+    aces = HandAnalyzer('acadahas2c')
+    #print(aces.four_kind(aces.hold(['True']*4+[False])))
+    print(aces.analyze())
