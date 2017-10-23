@@ -251,4 +251,4 @@ class TestHandAnalyzer(unittest.TestCase):
 
         lowp = HandAnalyzer('qcjckdtdth').analyze()
         exp_val_qjkt = lowp[('QC', 'JC', 'KD', 'TD', 'X')]['expected_val']
-        self.assertEqual(round(exp_val_qjkt, 3), round(4.362/5, 3))
+        self.assertEqual(round(exp_val_qjkt, 5), round(0.8723404255319, 5))

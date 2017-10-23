@@ -49,7 +49,7 @@ class HandAnalyzer(object):
 
         self.__ranks = 'A23456789TJQK'
         self.__suits = 'CDHS'
-        straight_ranks = 'A23456789TJQKA'
+        straight_ranks = self.__ranks + 'A'
         self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
 
         self.__draws = Counter(self.__ranks*4) - Counter([c[0] for c in self.__h])
