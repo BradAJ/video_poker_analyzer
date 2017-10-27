@@ -71,7 +71,8 @@ def save_chunks(hands_lst, filename_base, chunksize = 100000):
 
         fname = filename_base + str(ind) + '.txt'
         with open(fname, 'w') as fout:
-            fout.write('\n'.join(hands_analysis))
+            # write results on separate lines, include \n on last line
+            fout.write('\n'.join(hands_analysis)+'\n')
         print('Saved: {}'.format(fname))
     return str(ind)
 
