@@ -691,8 +691,8 @@ class HandAnalyzer(object):
 
 
         bestholdstr = ''.join(besthold)
-        line = '{}, {}'.format(bestholdstr, str(results[besthold]['expected_val']))
-        return line
+        #line = '{}, {}'.format(bestholdstr, str(results[besthold]['expected_val']))
+        return bestholdstr, results[besthold]['expected_val']
 
 
 if __name__ == '__main__':
