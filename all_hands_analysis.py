@@ -109,6 +109,6 @@ if __name__ == '__main__':
                   'three_kind': 3,
                   'two_pair': 2}
     all_hands_str_l = list(map(hand2str, all_hands_gen()))
-    indout = save_chunks(all_hands_str_l, 'poker_hand_evs_test',
-                         payouts = aces8s_d, chunksize = 1000)
+    indout = save_chunks(all_hands_str_l, 'poker_hand_evs_aces8s_',
+                         payouts = aces8s_d, chunksize = 200000)
     print(time.localtime())
