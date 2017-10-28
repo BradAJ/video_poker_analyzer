@@ -35,12 +35,17 @@ class HandAnalyzer(object):
     """
 
     def __init__(self, hand, payouts = None):
+        self.__specials = [] #special 4kinds ranks see: self.four_kind_special()
         if payouts is None:
             self.payouts = {'pair_jqka': 1, 'two_pair': 2, 'three_kind': 3,
                             'straight': 4, 'flush': 6, 'full_house': 9,
                             'four_kind': 25, 'straight_flush': 50,
                             'royal_flush': 800}
         else:
+            if 'four_kindA8' in payouts:
+                self.__specials.extend(['A', '8'])
+            if 'four_kind7' in payouts:
+                self.__specials.append('7')
             self.payouts = payouts
 
         #rewrite hand string as list of 5 cards of 2 chars
@@ -53,6 +58,8 @@ class HandAnalyzer(object):
         self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
 
         self.__draws = Counter(self.__ranks*4) - Counter([c[0] for c in self.__h])
+
+
 
     def draws(self):
         return self.__draws
@@ -460,14 +467,70 @@ class HandAnalyzer(object):
             return 0, 1
 
 
-    def four_kind(self, held_d):
+    def four_kind(self, held_d, specials = None):
+        """
+        specials: (list of str) any ranks chars that get a bonus on 4 of a kind.
+            e.g. 'A', '8', '7' for Aces and Eights payout table. Remove these
+            from the nominal four_kind count and call a method for each bonus.
+
+            For example with Aces and Eights payouts, .analyze() will call:
+            self.four_kind(held_d, specials = ['A', '7', '8'])
+            self.four_kindA8(held_d)
+            self.four_kind7(held_d)
+        """
         held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        held_r_cnts = Counter(held_r).most_common()
+        #held_r_cnts = Counter(held_r).most_common()
         exp_val_denom = comb(47, 5 - len(held_r))
 
 
         draw = self.draw_for_ranks(held_d, gsize=4, cnt_held_only=False)
-        return draw, exp_val_denom
+        if specials is None:
+            return draw, exp_val_denom
+        else:
+            dec_cnt = 0
+            for spec in specials:
+                dec_cnt += self.four_kind_special(disc_r, spec)
+            return draw - dec_cnt, exp_val_denom
+
+
+    def four_kindA8(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        exp_val_denom = comb(47, 5 - len(held_r))
+        ways_cnt = 0
+        for spec in ['A', '8']:
+            ways_cnt += self.four_kind_special(disc_r, spec)
+        return ways_cnt, exp_val_denom
+
+
+    def four_kind7(self, held_d):
+        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        exp_val_denom = comb(47, 5 - len(held_r))
+        return self.four_kind_special(disc_r, '7'), exp_val_denom
+
+
+    def four_kind_special(self, disc_r, special_card):
+        """
+        disc_r: 3rd in tuple returned by self.pivot_held_d(held_d)
+        special_card: (str) rank character that gets a bonus on four of a kind.
+            e.g. 'A', '8', '7' for Aces and Eights payout table.
+        need to specify these special cards for the main four_kind method to
+        avoid double counting them.
+        """
+        #held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+        kickers = len(disc_r) - self.__draws[special_card]
+        if (kickers < 0) or (special_card in disc_r):
+            return 0
+        elif kickers == 0:
+            return 1
+        else:
+            #47 draw cards to start, drawing 5 draw the 4 specials and 1 kicker
+            return 43
+
+
+
+
+
+
 
 
     def straight(self, held_d):
@@ -647,13 +710,21 @@ class HandAnalyzer(object):
                         'straight': self.straight,
                         'three_kind': self.three_kind,
                         'two_pair': self.two_pair,
-                        'pair_jqka': self.pair_jqka}
+                        'pair_jqka': self.pair_jqka,
+                        'four_kindA8': self.four_kindA8,
+                        'four_kind7': self.four_kind7}
+
+        specials_flag = len(self.__specials) > 0
         for hold_l in product([True, False], repeat=5):
             deck_state = self.hold(held = hold_l)
             ways_to_win = {}
             expected_val = 0
             for win in self.payouts:
-                wins_denom = win_counters[win](deck_state)
+                if specials_flag and (win == 'four_kind'):
+                    wins_denom = win_counters[win](deck_state,
+                                                   specials = self.__specials)
+                else:
+                    wins_denom = win_counters[win](deck_state)
                 expected_val += self.payouts[win] * wins_denom[0] / wins_denom[1]
                 ways_to_win[win] = wins_denom
 
@@ -725,4 +796,16 @@ if __name__ == '__main__':
     #print(junk.analyze())
     aces = HandAnalyzer('acadahas2c')
     #print(aces.four_kind(aces.hold(['True']*4+[False])))
-    print(aces.analyze())
+    #print(aces.analyze())
+    h2A8 = HandAnalyzer('qd9c8d5c2c', payouts={'flush': 5,
+ 'four_kind': 25,
+ 'four_kind7': 50,
+ 'four_kindA8': 80,
+ 'full_house': 8,
+ 'pair_jqka': 1,
+ 'royal_flush': 800,
+ 'straight': 4,
+ 'straight_flush': 50,
+ 'three_kind': 3,
+ 'two_pair': 2})
+    h2A8.analyze()

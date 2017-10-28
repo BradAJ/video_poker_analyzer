@@ -17,6 +17,10 @@ class TestHandAnalyzer(unittest.TestCase):
         self.h3 = HandAnalyzer('qd9c8dacad')
         self.junk = HandAnalyzer('ts9c8d5c2h')
 
+        self.aces8s_d = {'pair_jqka': 1, 'two_pair': 2, 'three_kind': 3,
+                        'straight': 4, 'flush': 5, 'full_house': 8,
+                        'four_kind': 25, 'four_kind7':50, 'four_kindA8':80,
+                        'straight_flush': 50, 'royal_flush': 800}
 
     def test_draws(self):
         full_ranks = '235689QK'
@@ -109,6 +113,17 @@ class TestHandAnalyzer(unittest.TestCase):
 
         fourk = HandAnalyzer('qcqdqhqs2c')
         self.assertEqual(fourk.four_kind(fourk.hold([True]*4 + [False])), (47, comb(47, 1)))
+
+        h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
+        h2A8holdq = h2A8.hold([True]+[False]*4)
+        h2A8holdq8 = h2A8.hold([True,False,True]+[False]*2)
+        spec = ['A', '7', '8']
+        self.assertEqual(h2A8.four_kind(h2A8holdq, specials=spec), (50, comb(47, 4)))
+        self.assertEqual(h2A8.four_kind(h2A8holdq8, specials=spec), (1, comb(47, 3)))
+
+        junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
+        j6disc = junk6.hold([False]*5)
+        self.assertEqual(junk6.four_kind(j6disc, specials=spec), (215, comb(47, 5)))
 
     def test_two_pair(self):
         twop = HandAnalyzer('acad8h8s2c')
@@ -229,29 +244,56 @@ class TestHandAnalyzer(unittest.TestCase):
         junkt = self.junk.hold([True]+[False]*4)
         self.assertEqual(self.junk.flush(junkt), (490, comb(47, 4)))
 
+    def test_four_kindA8(self):
+
+        h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
+        self.assertEqual(h2A8.four_kindA8(h2A8.hold([True]+[False]*4)), (1, comb(47, 4)))
+
+        junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
+        self.assertEqual(junk6.four_kindA8(junk6.hold([False]*5)), (86, comb(47, 5)))
+
+    def test_four_kind7(self):
+        h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
+        self.assertEqual(h2A8.four_kind7(h2A8.hold([True]+[False]*4)), (1, comb(47, 4)))
+        self.assertEqual(h2A8.four_kind7(h2A8.hold([True,False,True]+[False]*2)), (0, comb(47, 3)))
+
+        junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
+        self.assertEqual(junk6.four_kind7(junk6.hold([False]*5)), (43, comb(47, 5)))
+
+
     def test_analyze(self):
         #based on results from: https://www.videopokertrainer.org/calculator/
         junk_plays = self.junk.analyze()
-        exp_val_discardjunk = junk_plays[('X','X','X','X','X')]['expected_val']
+        exp_val_discardjunk = junk_plays[('XX','XX','XX','XX','XX')]['expected_val']
         self.assertEqual(round(exp_val_discardjunk, 5), round(0.35843407071, 5))
 
-        exp_val_holdt = junk_plays[('TS', 'X', 'X', 'X', 'X')]['expected_val']
+        exp_val_holdt = junk_plays[('TS', 'XX', 'XX', 'XX', 'XX')]['expected_val']
         self.assertEqual(round(exp_val_holdt, 5), round(0.32971715302, 5))
 
         h2_plays = self.h2.analyze()
-        exp_val_holdq = h2_plays[('QD', 'X', 'X', 'X', 'X')]['expected_val']
+        exp_val_holdq = h2_plays[('QD', 'XX', 'XX', 'XX', 'XX')]['expected_val']
         self.assertEqual(round(exp_val_holdq, 5), round(0.4741961707734, 5))
 
-        exp_val_holdq8 = h2_plays[('QD', 'X', '8D', 'X', 'X')]['expected_val']
+        exp_val_holdq8 = h2_plays[('QD', 'XX', '8D', 'XX', 'XX')]['expected_val']
         self.assertEqual(round(exp_val_holdq8, 5), round(0.41036077705827, 5))
 
         h3_plays = self.h3.analyze()
-        exp_val_holdaa = h3_plays[('X', 'X', 'X', 'AC', 'AD')]['expected_val']
+        exp_val_holdaa = h3_plays[('XX', 'XX', 'XX', 'AC', 'AD')]['expected_val']
         self.assertEqual(round(exp_val_holdaa, 5), round(1.536540240518, 5))
 
-        exp_val_holdaa8 = h3_plays[('X', 'X', '8D', 'AC', 'AD')]['expected_val']
+        exp_val_holdaa8 = h3_plays[('XX', 'XX', '8D', 'AC', 'AD')]['expected_val']
         self.assertEqual(round(exp_val_holdaa8, 5), round(1.4162812210915, 5))
 
         lowp = HandAnalyzer('qcjckdtdth').analyze()
-        exp_val_qjkt = lowp[('QC', 'JC', 'KD', 'TD', 'X')]['expected_val']
+        exp_val_qjkt = lowp[('QC', 'JC', 'KD', 'TD', 'XX')]['expected_val']
         self.assertEqual(round(exp_val_qjkt, 5), round(0.8723404255319, 5))
+
+        h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
+        h2A8_plays = h2A8.analyze()
+        exp_val_h2A8 = h2A8_plays[('QD', 'XX', 'XX', 'XX', 'XX')]['expected_val']
+        self.assertEqual(round(exp_val_h2A8, 5), round(0.47119109690802569, 5))
+
+        junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
+        j6_plays = junk6.analyze()
+        exp_val_j6 = j6_plays[('XX','XX','XX','XX','XX')]['expected_val']
+        self.assertEqual(round(exp_val_j6, 5), round(0.3588441261353939, 5))
