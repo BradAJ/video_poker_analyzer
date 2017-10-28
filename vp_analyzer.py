@@ -524,7 +524,7 @@ class HandAnalyzer(object):
             return 1
         else:
             #47 draw cards to start, drawing 5 draw the 4 specials and 1 kicker
-            return 43
+            return 47 - self.__draws[special_card]
 
 
 

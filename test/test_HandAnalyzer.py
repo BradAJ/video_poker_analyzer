@@ -252,6 +252,9 @@ class TestHandAnalyzer(unittest.TestCase):
         junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
         self.assertEqual(junk6.four_kindA8(junk6.hold([False]*5)), (86, comb(47, 5)))
 
+        aaa = HandAnalyzer('ACADAH9CQH',payouts = self.aces8s_d)
+        self.assertEqual(aaa.four_kindA8(aaa.hold([True]*3+[False]*2)), (46, comb(47, 2)))
+
     def test_four_kind7(self):
         h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
         self.assertEqual(h2A8.four_kind7(h2A8.hold([True]+[False]*4)), (1, comb(47, 4)))
@@ -264,7 +267,8 @@ class TestHandAnalyzer(unittest.TestCase):
     def test_analyze(self):
         #based on results from: https://www.videopokertrainer.org/calculator/
         junk_plays = self.junk.analyze()
-        exp_val_discardjunk = junk_plays[('XX','XX','XX','XX','XX')]['expected_val']
+        disc_all = ('XX','XX','XX','XX','XX')
+        exp_val_discardjunk = junk_plays[disc_all]['expected_val']
         self.assertEqual(round(exp_val_discardjunk, 5), round(0.35843407071, 5))
 
         exp_val_holdt = junk_plays[('TS', 'XX', 'XX', 'XX', 'XX')]['expected_val']
@@ -295,5 +299,14 @@ class TestHandAnalyzer(unittest.TestCase):
 
         junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
         j6_plays = junk6.analyze()
-        exp_val_j6 = j6_plays[('XX','XX','XX','XX','XX')]['expected_val']
-        self.assertEqual(round(exp_val_j6, 5), round(0.3588441261353939, 5))
+        exp_val_j6 = j6_plays[disc_all]['expected_val']
+        j6_disc_ev = 0.3588441261353939
+        self.assertEqual(round(exp_val_j6, 5), round(j6_disc_ev, 5))
+        j6_best = junk6.analyze(return_full_analysis = False)
+        self.assertEqual(j6_best[0], ''.join(disc_all))
+        self.assertEqual(round(j6_best[1], 5), round(j6_disc_ev, 5))
+
+        aaa = HandAnalyzer('ACADAH9CQH',payouts = self.aces8s_d)
+        aaa_best = aaa.analyze(return_full_analysis = False)
+        self.assertEqual(aaa_best[0], ''.join(('AC', 'AD', 'AH', 'XX', 'XX')))
+        self.assertEqual(round(aaa_best[1], 5), round(6.5818686401480111, 5))
