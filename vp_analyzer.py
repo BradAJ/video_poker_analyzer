@@ -637,7 +637,7 @@ class HandAnalyzer(object):
         return kick_cnt
 
 
-    def analyze(self):
+    def analyze(self, return_full_analysis = True):
         win_props = {}
         win_counters = {'royal_flush': self.royal_flush,
                         'straight_flush': self.straight_flush,
@@ -661,8 +661,38 @@ class HandAnalyzer(object):
             hand = tuple(card if held else 'XX' for card, held in zip(self.hand, hold_l))
             win_props[hand] = ways_to_win
 
-        return win_props
+        if return_full_analysis:
+            return win_props
+        else:
+            return self.best_disc(win_props)
 
+    @staticmethod
+    def best_disc(results):
+
+        #handstr = hand2str(hand_tup)
+        #results = HandAnalyzer(handstr).analyze()
+        max_ev = 0
+        best_ev_disc = 0
+        for holddisc in results:
+            cur_ev = results[holddisc]['expected_val']
+
+            equal_bool = () and (cur_disc > best_ev_disc)
+            if cur_ev > max_ev:
+                besthold = holddisc
+                max_ev = cur_ev
+                best_ev_disc = holddisc.count('XX')
+            elif cur_ev == max_ev:
+                cur_ev_disc = holddisc.count('XX')
+                if cur_ev_disc > best_ev_disc:
+                    besthold = holddisc
+                    best_ev_disc = cur_ev_disc
+            else:
+                continue
+
+
+        bestholdstr = ''.join(besthold)
+        line = '{}, {}'.format(bestholdstr, str(results[besthold]['expected_val']))
+        return line
 
 
 if __name__ == '__main__':
