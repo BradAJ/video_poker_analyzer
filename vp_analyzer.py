@@ -3,15 +3,10 @@ from itertools import combinations_with_replacement, product
 from scipy.misc import comb
 
 
-
-## TODO: refactor so that a hand w/ discards is its own class w/ attrs like:
-## nonheld_rank_grps, held_r etc.
-## TODO: refactor draw_for_ranks to take a nonheld_rank_grps input instead of held_d
-
 class HandAnalyzer(object):
     """
     Given a string of the form 'ac2d9htskc' treat that as a 5 card poker hand:
-    Ace of Clubs, Two of Diamonds, Nine of Hearts, Ten of Spades, King of Clubs".
+    Ace of Clubs, Two of Diamonds, Nine of Hearts, Ten of Spades, King of Clubs.
 
     Analyze the counts possible winning hands based on holding or discarding any
     combination of the 5 cards. Optionally input a payout table as a dictionary
@@ -35,8 +30,9 @@ class HandAnalyzer(object):
     """
 
     def __init__(self, hand, payouts = None):
-        self.__specials = [] #special 4kinds ranks see: self.four_kind_special()
+        self.__specials = [] #special 4kinds ranks see: DiscardValue.four_kind_special()
         if payouts is None:
+            #Payout for "9-6 Jacks or Better Video Poker"
             self.payouts = {'pair_jqka': 1, 'two_pair': 2, 'three_kind': 3,
                             'straight': 4, 'flush': 6, 'full_house': 9,
                             'four_kind': 25, 'straight_flush': 50,
@@ -49,20 +45,13 @@ class HandAnalyzer(object):
             self.payouts = payouts
 
         #rewrite hand string as list of 5 cards of 2 chars
-        self.hand = [hand[ind:ind+2].upper() for ind in range(0,10,2)]
+        self.hand = []
+        for ind in range(0, 10, 2):
+            self.hand.append(hand[ind:ind+1].upper() + hand[ind+1:ind+2].lower())
+
         self.__h = [(card[0], card[1]) for card in self.hand]
+        #self.__draws = Counter(self.__ranks*4) - Counter([c[0] for c in self.__h])
 
-        self.__ranks = 'A23456789TJQK'
-        self.__suits = 'CDHS'
-        straight_ranks = self.__ranks + 'A'
-        self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
-
-        self.__draws = Counter(self.__ranks*4) - Counter([c[0] for c in self.__h])
-
-
-
-    def draws(self):
-        return self.__draws
 
     def hold(self, held = [True]*5):
         held_d = {'h':[], 'd':[]}
@@ -74,59 +63,224 @@ class HandAnalyzer(object):
         return held_d
 
 
+    def analyze(self, return_full_analysis = True):
+        win_props = {}
+
+        count_wins_kwargs = {'wins': self.payouts.keys()}
+        if self.__specials != []:
+            count_wins_kwargs['specials'] = self.__specials
+
+        for hold_l in product([True, False], repeat=5):
+            deck_state = DiscardValue(held_d=self.hold(held = hold_l))
+            ways_to_win = deck_state.count_wins(**count_wins_kwargs)
+            expected_val = 0
+            for win, cnt_tup in ways_to_win.items():
+                expected_val += self.payouts[win] * cnt_tup[0] / cnt_tup[1]
+
+            ways_to_win['expected_val'] = expected_val
+            hand = tuple(card if held else 'XX' for card, held in zip(self.hand, hold_l))
+            win_props[hand] = ways_to_win
+
+        if return_full_analysis:
+            return win_props
+        else:
+            return self.best_disc(win_props)
+
+
     @staticmethod
-    def pivot_held_d(held_d):
+    def best_disc(results):
+        max_ev = 0
+        best_ev_disc = 0
+        for holddisc in results:
+            cur_ev = results[holddisc]['expected_val']
+
+            equal_bool = () and (cur_disc > best_ev_disc)
+            if cur_ev > max_ev:
+                besthold = holddisc
+                max_ev = cur_ev
+                best_ev_disc = holddisc.count('XX')
+            elif cur_ev == max_ev:
+                cur_ev_disc = holddisc.count('XX')
+                if cur_ev_disc > best_ev_disc:
+                    besthold = holddisc
+                    best_ev_disc = cur_ev_disc
+            else:
+                continue
+
+        bestholdstr = ''.join(besthold)
+
+        return bestholdstr, results[besthold]['expected_val']
+
+
+class DiscardValue(object):
+    """
+    Given a poker hand and specifying which cards to hold/discard count ways
+    of building winning hands. If the payout table gives bonuses for particular
+    hands, specify those with the specials keyword (currently only works for
+    Aces and Eights variant).
+
+    Methods named after poker hands (e.g. royal_flush, four_kind, full_house)
+    return a tuple-pair of:
+    (counts of ways to make the hand, count of other possible hands)
+    If there are no ways to make the hand then they return: (0, 1)
+
+    All other methods, except count_wins, are helper functions for these poker
+    hand methods.
+
+
+    INPUT:
+    held_d: (dict) Hold/Discard with keys 'h' and 'd' of the form output from
+            HandAnalyzer.hold, e.g.:
+            {'h': [('T', 's'), ('5', 'c'), ('2', 'h')],
+            'd': [('9', 'c'), ('8', 'd')]}
+    hand_str: (str) Ten characters specifying a poker hand (Case Insensitive),
+              of the form for instantiating HandAnalyzer, e.g.: 'Ts9c8d5c2h'
+    hold_str: (str) Same form as hand_str, except discarded cards represented
+                 as 'XX', e.g.: 'TsXXXX5c2h'
+        NOTE: DiscardValue object must be instantiated with held_d alone,
+        or hold_str AND discard_str together. (held_d has priority
+        if others are not None)
+    specials: (list) Card ranks with bonuses for four of a kind, e.g.:
+              ['A', '7', '8']
+
+    OUTPUT: None
+    """
+    def __init__(self, held_d = None, hand_str = None, hold_str = None,
+                 specials = None):
+        if held_d is not None:
+            #TODO: enforce rank uppercase, suit lowercase in card tuples
+            self.held_d = held_d
+        elif (hand_str is not None) and (hold_str is not None):
+            ha_obj = HandAnalyzer(hand_str)
+            hold_l = [hold_str[ind:ind+2].upper() != 'XX' for ind in range(0,10,2)]
+            self.held_d = ha_obj.hold(hold_l)
+        else:
+            exp = 'If held_d is None, then specify hand_str AND hold_str. {} is None'
+            kwzip = zip([hand_str, hold_str], ['hand_str', 'hold_str'])
+            nones = ' '.join([kws if kw is None else '' for kw, kws in kwzip])
+            raise Exception(exp.format(nones))
+
+        self.__specials = specials
+
+        self.__ranks = 'A23456789TJQK'
+        self.__suits = 'cdhs'
+        straight_ranks = self.__ranks + 'A'
+        self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
+
+        self.held_r, self.held_s, self.disc_r, self.disc_s = self.pivot_held_d()
+        #NOTE to self: regex find: (held_r[^\w_])  , replace: self.$1
+
+        seen_ranks = Counter(list(self.held_r) + list(self.disc_r))
+        self.__draws = Counter(self.__ranks*4) - seen_ranks
+
+        self.exp_val_denom = comb(47, 5 - len(self.held_r))
+        self.held_r_cnts = Counter(self.held_r).most_common()
+
+        #TODO: make exp_val_denom, nonheld_rank_grps class attributes
+
+
+
+    def draws(self):
+        """Returns the count of each card rank available to be drawn."""
+        return self.__draws
+
+
+    def pivot_held_d(self):
+        """Helper function to reorganize hold/discard info."""
         ranks_suits = []
         for key in ['h', 'd']:
-            if held_d[key] != []:
-                ranks_suits.extend(list(zip(*held_d[key])))
+            if self.held_d[key] != []:
+                ranks_suits.extend(list(zip(*self.held_d[key])))
             else:
                 ranks_suits.extend([(), ()])
         return ranks_suits
 
-    def royal_flush(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        holding_2to9 = set(held_r).intersection(set('23456789')) != set()
-        exp_val_denom = comb(47, 5 - len(held_r))
-        if holding_2to9 or (len(set(held_s)) > 1):
+    def count_wins(self, wins = None, specials = None):
+        """
+        Wrapper func.
+        Call each poker hand method specified as a string in wins and return
+        the output from these in a dict.
+
+        INPUT:
+        wins: (list of str) Each elem corresponds to a poker hand method, e.g.:
+                ['royal_flush', 'pair_jqka', 'four_kindA8']
+                If wins is None: include all Jack or Better hands
+        specials: (list of str) any ranks chars that get a bonus on 4 of a kind.
+            e.g. 'A', '8', '7' for Aces and Eights payout table. Remove these
+            from the nominal four_kind count and call a method for each bonus.
+
+        OUTPUT: (dict) e.g.:
+                {'royal_flush': (1, 178365), 'pair_jqka': (45456, 178365),
+                'four_kindA8': (0, 178365)}
+
+        TODO: move the exp_val_denom (e.g. 178365) elsewhere.
+        """
+        if wins is None:
+            wins = ['royal_flush','straight_flush','four_kind','full_house',
+                    'flush','straight','three_kind','two_pair','pair_jqka']
+        #TODO: generate win_counters from wins
+        win_counters = {'royal_flush': self.royal_flush,
+                        'straight_flush': self.straight_flush,
+                        'four_kind': self.four_kind,
+                        'full_house': self.full_house,
+                        'flush': self.flush,
+                        'straight': self.straight,
+                        'three_kind': self.three_kind,
+                        'two_pair': self.two_pair,
+                        'pair_jqka': self.pair_jqka,
+                        'four_kindA8': self.four_kindA8,
+                        'four_kind7': self.four_kind7}
+        wins_d = {}
+        for win in wins:
+            if (specials is not None) and (win == 'four_kind'):
+                wins_d[win] = win_counters[win](specials = specials)
+            else:
+                wins_d[win] = win_counters[win]()
+
+        return wins_d
+
+
+    def royal_flush(self):
+        holding_2to9 = set(self.held_r).intersection(set('23456789')) != set()
+        exp_val_denom = comb(47, 5 - len(self.held_r))
+        if holding_2to9 or (len(set(self.held_s)) > 1):
             return 0, 1
 
         discarded_royal_suits = set()
-        for card in held_d['d']:
+        for card in self.held_d['d']:
             if (card[0] in 'AKQJT'):
                 #check if held and discarded royal of same suit
-                #already checked for multiple held suits, hence held_s[0]
-                if (len(held_s) > 0) and (card[1] == held_s[0]):
+                #already checked for multiple held suits, hence self.held_s[0]
+                if (len(self.held_s) > 0) and (card[1] == self.held_s[0]):
                     return 0, 1
                 discarded_royal_suits.add(card[1])
 
-        if len(set(held_s)) == 1:
+        if len(set(self.held_s)) == 1:
             return 1, exp_val_denom
         else:
             return 4 - len(discarded_royal_suits), exp_val_denom
 
-    def straight_flush(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
+    def straight_flush(self):
         ways_cnt = 0
 
-        if len(set(held_s)) > 1:
+        if len(set(self.held_s)) > 1:
             return 0, 1
-        exp_val_denom = comb(47, 5 - len(held_r))
+        exp_val_denom = comb(47, 5 - len(self.held_r))
 
 
-        #use defaultdict?
-        undrawable_suits = {r: set() for r in 'A23456789TJQK'}
-        for hd in held_d:
-            for r, s in held_d[hd]:
+        #TODO: use defaultdict?, use global for ranks string
+        undrawable_suits = {r: set() for r in self.__ranks}
+        for hd in self.held_d:
+            for r, s in self.held_d[hd]:
                 if hd == 'd':
                     undrawable_suits[r].add(s)
                 elif hd == 'h':
                     # 3 of 4 suits become undrawable when 1 is held
-                    converse = {'C','D','H','S'}.difference(s)
+                    converse = {x for x in self.__suits}.difference(s)
                     undrawable_suits[r].update(converse)
                 else:
                     raise Exception('held_d has unexpected key: {}'.format(hd))
-        po_strts, _ = self.potential_straights(held_r, include_royals = False)
+        po_strts, _ = self.potential_straights(include_royals = False)
         for strt in po_strts:
             if strt is not None:
                 strt_miss_suits = set()
@@ -137,44 +291,42 @@ class HandAnalyzer(object):
         return ways_cnt, exp_val_denom
 
 
-    def flush(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        num_suits = len(set(held_s))
+    def flush(self):
+        num_suits = len(set(self.held_s))
         if num_suits > 1:
             return 0, 1
-        exp_val_denom = comb(47, 5 - len(held_r))
+        exp_val_denom = comb(47, 5 - len(self.held_r))
 
         ways_cnt = 0
-        ways_cnt -= self.royal_flush(held_d)[0]
-        ways_cnt -= self.straight_flush(held_d)[0]
+        ways_cnt -= self.royal_flush()[0]
+        ways_cnt -= self.straight_flush()[0]
 
         #use defaultdict
-        undrawable_suit_cnt = {s:0 for s in 'CDHS'}
-        for _, suit in self.__h:
+        undrawable_suit_cnt = {s:0 for s in self.__suits}
+        for suit in list(self.held_s) + list(self.disc_s):
             undrawable_suit_cnt[suit] += 1
 
         if num_suits == 1:
-            ways_cnt += comb(13 - undrawable_suit_cnt[held_s[0]], len(disc_r))
+            ways_cnt += comb(13 - undrawable_suit_cnt[self.held_s[0]], len(self.disc_r))
         else: #no saved cards
             for suit, udc in undrawable_suit_cnt.items():
-                ways_cnt += comb(13 - udc, len(disc_r))
+                ways_cnt += comb(13 - udc, len(self.disc_r))
 
         return ways_cnt, exp_val_denom
 
 
 
-    def pair_jqka(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        held_r_cnts = Counter(held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(held_r))
+    def pair_jqka(self):
+        held_r_cnts = Counter(self.held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(self.held_r))
         # nothing held
         if held_r_cnts == []:
-            draw5 = self.draw_for_ranks(held_d, gsize=2, cnt_held_only=False,
+            draw5 = self.draw_for_ranks( gsize=2, cnt_held_only=False,
                                         pairing_jqka=True)
             return draw5, exp_val_denom
         # most common card is a singleton
         elif held_r_cnts[0][1] == 1:
-            draws = self.draw_for_ranks(held_d, gsize=2, cnt_held_only=False,
+            draws = self.draw_for_ranks( gsize=2, cnt_held_only=False,
                                         pairing_jqka=True)
             return draws, exp_val_denom
         elif held_r_cnts[0][1] == 2:
@@ -188,9 +340,9 @@ class HandAnalyzer(object):
 
             #holding pair of jkqa find everything that DOESN't improve hand
             #DRY this up (in three_kind too)
-            draw_cnt = len(held_d['d'])
+            draw_cnt = len(self.disc_r)
             nonheld_ranks = self.__draws.copy()
-            for r in held_r:
+            for r in self.held_r:
                 nonheld_ranks[r] = 0
             nonheld_rank_grps = Counter(nonheld_ranks.values())
             return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
@@ -198,19 +350,18 @@ class HandAnalyzer(object):
             return 0, 1
 
 
-    def two_pair(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        held_r_cnts = Counter(held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(held_r))
+    def two_pair(self):
+        held_r_cnts = Counter(self.held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(self.held_r))
         nonheld_ranks = self.__draws.copy()
         held_r_avail = {}
-        for r in held_r:
+        for r in self.held_r:
             held_r_avail[r] = self.__draws[r]
             nonheld_ranks[r] = 0
 
         nonheld_rank_grps = Counter(nonheld_ranks.values())
         held_r_avail_grps = Counter(held_r_avail.values())
-        draw_cnt = len(held_d['d'])
+        draw_cnt = len(self.disc_r)
         # nothing held
         if held_r_cnts == []:
             return self.draw_2pair(nonheld_rank_grps, draw_cnt = 5), exp_val_denom
@@ -239,7 +390,7 @@ class HandAnalyzer(object):
                     #pair up a held card
                     hrways = comb(hrcnt, 1) * comb(havail, 1)
                     #then draw a pair
-                    drawways = self.draw_for_ranks(held_d, gsize=2,
+                    drawways = self.draw_for_ranks( gsize=2,
                                                    draw_cnt=2,
                                                    draw_only=True,
                                                    second_pair=False)
@@ -263,13 +414,13 @@ class HandAnalyzer(object):
             if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
                 #find everything that DOESN't improve hand
                 #DRY this up (in three_kind too)
-                draw_cnt = len(held_d['d'])
+                #draw_cnt = len(self.disc_r)
 
                 return (self.count_ways2kick(nonheld_rank_grps, draw_cnt),
                         exp_val_denom)
             else:
                 #holding a pair. take it out of consideration and look for another
-                return (self.draw_for_ranks(held_d, gsize=2, second_pair=True),
+                return (self.draw_for_ranks( gsize=2, second_pair=True),
                         exp_val_denom)
 
         else:
@@ -283,8 +434,7 @@ class HandAnalyzer(object):
         drawing 4 or 5 cards.
         there's a mostly symmetrical case for drawing 2 cards and holding
         3 singletons and pairing up 2 of those. so if draw_cnt = 2 then
-        choose 1 card from the number available within a rank. adjust this with
-        the choose_in_r flag.
+        choose 1 card from the number available within a rank.
         """
         if draw_cnt in [4, 5]:
             choose_in_r = 2
@@ -325,13 +475,12 @@ class HandAnalyzer(object):
         return ways_cnt
 
 
-    def three_kind(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        held_r_cnts = Counter(held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(held_r))
+    def three_kind(self):
+        held_r_cnts = Counter(self.held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(self.held_r))
         # nothing held or most common card is a singleton
         if held_r_cnts == [] or held_r_cnts[0][1] == 1:
-            draw = self.draw_for_ranks(held_d, gsize=3, cnt_held_only=False)
+            draw = self.draw_for_ranks( gsize=3, cnt_held_only=False)
             return draw, exp_val_denom
 
         elif held_r_cnts[0][1] == 2:
@@ -339,7 +488,7 @@ class HandAnalyzer(object):
             if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
                 return 0, 1
 
-            drawp = self.draw_for_ranks(held_d, gsize=3, cnt_held_only=True)
+            drawp = self.draw_for_ranks( gsize=3, cnt_held_only=True)
             #if holding a pair and a 3rd card, e.g. 'AA7', drawing '77' will be
             #counted by draw_for_ranks, but this is FH, so subtract this.
             if (len(held_r_cnts) == 2) and (held_r_cnts[1][1] == 1):
@@ -355,28 +504,27 @@ class HandAnalyzer(object):
             else:
                 #find everything that DOESN't improve hand
                 #DRY this up
-                draw_cnt = len(held_d['d'])
+                draw_cnt = len(self.disc_r)
                 nonheld_ranks = self.__draws.copy()
-                for r in held_r:
+                for r in self.held_r:
                     nonheld_ranks[r] = 0
                 nonheld_rank_grps = Counter(nonheld_ranks.values())
                 return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
         else:
             return 0, 1
 
-    def full_house(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        held_r_cnts = Counter(held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(held_r))
+    def full_house(self):
+        held_r_cnts = Counter(self.held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(self.held_r))
         nonheld_ranks = self.__draws.copy()
         held_r_avail = {}
-        for r in held_r:
+        for r in self.held_r:
             held_r_avail[r] = self.__draws[r]
             nonheld_ranks[r] = 0
 
         nonheld_rank_grps = Counter(nonheld_ranks.values())
         held_r_avail_grps = Counter(held_r_avail.values())
-        draw_cnt = len(held_d['d'])
+        draw_cnt = len(self.disc_r)
 
         ways_cnt = 0
         # nothing held
@@ -401,8 +549,9 @@ class HandAnalyzer(object):
                 held_draws = list(held_r_avail.values())[0] # ok since only holding 1
                 for heldneed, drawneed in [[1, 3], [2, 2]]:
                     up_held = comb(held_draws, heldneed)
-                    draw_grp = self.draw_for_ranks(held_d, gsize = drawneed,
-                                                   draw_cnt=drawneed, draw_only=True)
+                    draw_grp = self.draw_for_ranks(gsize=drawneed,
+                                                   draw_cnt=drawneed,
+                                                   draw_only=True)
                     ways_cnt += up_held * draw_grp
 
                 return ways_cnt, exp_val_denom
@@ -424,10 +573,10 @@ class HandAnalyzer(object):
                 tripup_pair = comb(held_draws, 1)
                 if draw_cnt == 3:
                     #draw trips to go with pair
-                    ways_cnt += self.draw_for_ranks(held_d, gsize=3, draw_cnt=3,
+                    ways_cnt += self.draw_for_ranks( gsize=3, draw_cnt=3,
                                                     draw_only=True)
                     #draw pair to go with tripup pair
-                    draws = self.draw_for_ranks(held_d, gsize=2, draw_cnt=2,
+                    draws = self.draw_for_ranks( gsize=2, draw_cnt=2,
                                                 draw_only=True)
                 elif draw_cnt == 2:
                     sing_avail = self.__draws[held_r_cnts[1][0]]
@@ -450,7 +599,7 @@ class HandAnalyzer(object):
         elif held_r_cnts[0][1] == 3:
             #draw pair with trips,
             if draw_cnt == 2:
-                draw_pair = self.draw_for_ranks(held_d, gsize=2, draw_cnt=2,
+                draw_pair = self.draw_for_ranks( gsize=2, draw_cnt=2,
                                                 draw_only=True)
                 return draw_pair, exp_val_denom
             #trips + pairup held singleton
@@ -467,58 +616,55 @@ class HandAnalyzer(object):
             return 0, 1
 
 
-    def four_kind(self, held_d, specials = None):
+    def four_kind(self, specials = None):
         """
         specials: (list of str) any ranks chars that get a bonus on 4 of a kind.
             e.g. 'A', '8', '7' for Aces and Eights payout table. Remove these
             from the nominal four_kind count and call a method for each bonus.
 
             For example with Aces and Eights payouts, .analyze() will call:
-            self.four_kind(held_d, specials = ['A', '7', '8'])
-            self.four_kindA8(held_d)
-            self.four_kind7(held_d)
+            self.four_kind( specials = ['A', '7', '8'])
+            self.four_kindA8()
+            self.four_kind7()
         """
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        #held_r_cnts = Counter(held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(held_r))
+        held_r_cnts = Counter(self.held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(self.held_r))
 
 
-        draw = self.draw_for_ranks(held_d, gsize=4, cnt_held_only=False)
+        draw = self.draw_for_ranks( gsize=4, cnt_held_only=False)
         if specials is None:
             return draw, exp_val_denom
         else:
             dec_cnt = 0
             for spec in specials:
-                dec_cnt += self.four_kind_special(disc_r, spec)
+                dec_cnt += self.four_kind_special(spec)
             return draw - dec_cnt, exp_val_denom
 
 
-    def four_kindA8(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        exp_val_denom = comb(47, 5 - len(held_r))
+    def four_kindA8(self):
+        """Bonus for four of kind with Aces or Eights"""
+        exp_val_denom = comb(47, 5 - len(self.held_r))
         ways_cnt = 0
         for spec in ['A', '8']:
-            ways_cnt += self.four_kind_special(disc_r, spec)
+            ways_cnt += self.four_kind_special(spec)
         return ways_cnt, exp_val_denom
 
 
-    def four_kind7(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        exp_val_denom = comb(47, 5 - len(held_r))
-        return self.four_kind_special(disc_r, '7'), exp_val_denom
+    def four_kind7(self):
+        """Bonus for four of kind with Sevens"""
+        exp_val_denom = comb(47, 5 - len(self.held_r))
+        return self.four_kind_special('7'), exp_val_denom
 
 
-    def four_kind_special(self, disc_r, special_card):
+    def four_kind_special(self, special_card):
         """
-        disc_r: 3rd in tuple returned by self.pivot_held_d(held_d)
         special_card: (str) rank character that gets a bonus on four of a kind.
             e.g. 'A', '8', '7' for Aces and Eights payout table.
         need to specify these special cards for the main four_kind method to
         avoid double counting them.
         """
-        #held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        kickers = len(disc_r) - self.__draws[special_card]
-        if (kickers < 0) or (special_card in disc_r):
+        kickers = len(self.disc_r) - self.__draws[special_card]
+        if (kickers < 0) or (special_card in self.disc_r):
             return 0
         elif kickers == 0:
             return 1
@@ -527,21 +673,14 @@ class HandAnalyzer(object):
             return 47 - self.__draws[special_card]
 
 
-
-
-
-
-
-
-    def straight(self, held_d):
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-        held_r_cnts = Counter(held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(held_r))
+    def straight(self):
+        held_r_cnts = Counter(self.held_r).most_common()
+        exp_val_denom = comb(47, 5 - len(self.held_r))
 
         ways_cnt = 0
         #subtract royal and straight flush from the count
-        ways_cnt -= self.royal_flush(held_d)[0]
-        ways_cnt -= self.straight_flush(held_d)[0]
+        ways_cnt -= self.royal_flush()[0]
+        ways_cnt -= self.straight_flush()[0]
         if held_r_cnts == []:
             for s in self.__strts:
                 ways_cnt += self.prod_list([self.__draws[r] for r in s])
@@ -550,7 +689,7 @@ class HandAnalyzer(object):
             #holding a pair or more
             return 0, 1
         else:
-            strts_cop, draws_cop = self.potential_straights(held_r)
+            strts_cop, draws_cop = self.potential_straights()
             for sc in strts_cop:
                 if sc is not None:
                     ways_cnt += self.prod_list([draws_cop[r] for r in sc])
@@ -558,8 +697,9 @@ class HandAnalyzer(object):
             return ways_cnt, exp_val_denom
 
 
-    def potential_straights(self, held_r, include_royals = True):
+    def potential_straights(self, include_royals = True):
         """
+        Helper func for hands with straights.
         Switches the strings in list of strings representing straights
         e.g. 'A2345', '789TJ' to None if holding a card that is not in
         the given straight. Also sets the draws for that rank to 1.
@@ -573,7 +713,7 @@ class HandAnalyzer(object):
             enum_strts = list(enumerate(self.__strts[:-1]))
 
         draws_cop = self.__draws.copy()
-        for r in held_r:
+        for r in self.held_r:
             draws_cop[r] = 1
             for ind, strt in enum_strts:
                 if r not in strt:
@@ -581,15 +721,15 @@ class HandAnalyzer(object):
         return strts_cop, draws_cop
 
 
-
     @staticmethod
     def prod_list(lst):
+        """Helper function for straights"""
         accum = 1
         for el in lst:
             accum *= el
         return accum
 
-    def draw_for_ranks(self, held_d, gsize = 3, cnt_held_only = False, pairing_jqka = False, second_pair = False, draw_cnt = None, draw_only = False):
+    def draw_for_ranks(self, gsize = 3, cnt_held_only = False, pairing_jqka = False, second_pair = False, draw_cnt = None, draw_only = False):
         """
         Given held cards and discards count ways to draw for pairs/3kind/4_of_a_kind
         based on collecting them purely from draw pile or adding to the held cards
@@ -610,19 +750,16 @@ class HandAnalyzer(object):
 
         """
 
-        held_r, held_s, disc_r, disc_s = self.pivot_held_d(held_d)
-
-        draw_cnt = len(held_d['d']) if draw_cnt is None else draw_cnt
+        draw_cnt = len(self.disc_r) if draw_cnt is None else draw_cnt
 
         #dealing with two_pair stuff
         if not second_pair:
             nonheld_ranks = self.__draws.copy()
         else:
-            rmv_held_pair = Counter({Counter(held_r).most_common(1)[0]: 2})
+            rmv_held_pair = Counter({Counter(self.held_r).most_common(1)[0]: 2})
             nonheld_ranks = self.__draws - rmv_held_pair
-        for r in held_r:
+        for r in self.held_r:
             nonheld_ranks[r] = 0
-
 
         nonheld_rank_grps = Counter(nonheld_ranks.values())
         #remove everything but JQKA if only considering those pairs
@@ -656,7 +793,7 @@ class HandAnalyzer(object):
 
         #add up ways of adding to the held cards
         if not draw_only:
-            for r, hcnt in Counter(held_r).items():
+            for r, hcnt in Counter(self.held_r).items():
                 #skip if only pairing up JQKA
                 pair_jqka_cond = pairing_jqka and (r not in 'JQKA')
                 second_pair_cond = second_pair and (hcnt == 2)
@@ -673,7 +810,8 @@ class HandAnalyzer(object):
                                                          num_kickers = kickers)
                         else:
                             sp_nhrg = nonheld_rank_grps - Counter({nonheld_ranks[r]:1})
-                            kick_ways = self.count_ways2kick(sp_nhrg, num_kickers = kickers)
+                            kick_ways = self.count_ways2kick(sp_nhrg,
+                                                             num_kickers = kickers)
                     else:
                         kick_ways = 1
                     #print(hcnt, kickers, kick_ways, hways)
@@ -687,6 +825,11 @@ class HandAnalyzer(object):
 
     @staticmethod
     def count_ways2kick(nonheld_rank_grps, num_kickers = 1):
+        """
+        Helper function for counting "kickers", that is cards that are drawn
+        but are irrelevant to poker hand because other drawn cards already
+        completed it.
+        """
         # possible combinations, if num_kickers = 2 and there are 8 ranks with 4
         # cards to draw one elem will be (4, 4), so run counter on this to get things
         # to work properly. then comb(8, 2)*comb(4, 1)**2
@@ -698,114 +841,3 @@ class HandAnalyzer(object):
                 multiplier *= comb(num_ranks, cnt) * suit_cnt_key ** cnt
             kick_cnt += multiplier
         return kick_cnt
-
-
-    def analyze(self, return_full_analysis = True):
-        win_props = {}
-        win_counters = {'royal_flush': self.royal_flush,
-                        'straight_flush': self.straight_flush,
-                        'four_kind': self.four_kind,
-                        'full_house': self.full_house,
-                        'flush': self.flush,
-                        'straight': self.straight,
-                        'three_kind': self.three_kind,
-                        'two_pair': self.two_pair,
-                        'pair_jqka': self.pair_jqka,
-                        'four_kindA8': self.four_kindA8,
-                        'four_kind7': self.four_kind7}
-
-        specials_flag = len(self.__specials) > 0
-        for hold_l in product([True, False], repeat=5):
-            deck_state = self.hold(held = hold_l)
-            ways_to_win = {}
-            expected_val = 0
-            for win in self.payouts:
-                if specials_flag and (win == 'four_kind'):
-                    wins_denom = win_counters[win](deck_state,
-                                                   specials = self.__specials)
-                else:
-                    wins_denom = win_counters[win](deck_state)
-                expected_val += self.payouts[win] * wins_denom[0] / wins_denom[1]
-                ways_to_win[win] = wins_denom
-
-            ways_to_win['expected_val'] = expected_val
-            hand = tuple(card if held else 'XX' for card, held in zip(self.hand, hold_l))
-            win_props[hand] = ways_to_win
-
-        if return_full_analysis:
-            return win_props
-        else:
-            return self.best_disc(win_props)
-
-    @staticmethod
-    def best_disc(results):
-
-        #handstr = hand2str(hand_tup)
-        #results = HandAnalyzer(handstr).analyze()
-        max_ev = 0
-        best_ev_disc = 0
-        for holddisc in results:
-            cur_ev = results[holddisc]['expected_val']
-
-            equal_bool = () and (cur_disc > best_ev_disc)
-            if cur_ev > max_ev:
-                besthold = holddisc
-                max_ev = cur_ev
-                best_ev_disc = holddisc.count('XX')
-            elif cur_ev == max_ev:
-                cur_ev_disc = holddisc.count('XX')
-                if cur_ev_disc > best_ev_disc:
-                    besthold = holddisc
-                    best_ev_disc = cur_ev_disc
-            else:
-                continue
-
-
-        bestholdstr = ''.join(besthold)
-        #line = '{}, {}'.format(bestholdstr, str(results[besthold]['expected_val']))
-        return bestholdstr, results[besthold]['expected_val']
-
-
-if __name__ == '__main__':
-    #h1 = HandAnalyzer('ahjcts7s4h', payouts = {'royal_flush':800})
-    #print(h1.analyze())
-    #x = h1.hold([True, False, False, False, False])
-    #print(h1.pivot_held_d(h1.hold([False]*5)))
-
-    #h2 = HandAnalyzer('qd9c8d5c2c', payouts = {'royal_flush': 800, 'three_kind': 15})
-    #print(h2.three_kind(h2.hold([False]*5)))
-    #print(h2.draw_for_ranks(h2.hold([True, False, False, False, False]), gsize = 2, pairing_jqka = True))
-    #print(h2.four_kind(h2.hold([True]*1+[False]*4)))
-
-    #h3 = HandAnalyzer('qd9c8dacad', payouts = {'royal_flush': 800})
-    #print(h3.draw_for_ranks(h3.hold([False, False, False, True, True]), gsize = 3))
-    #this gives 1893, correct is 1854, it counts some full houses, need to check for that...
-    #all_true = [True]*5
-    #h3 = HandAnalyzer('qdqcqh2s2d', payouts = {'royal_flush': 800})
-    #print(h3.draw_for_ranks(h3.hold([True]*3+[False]*2), gsize = 3, cnt_held_only=True))
-    #print(h3.three_kind(h3.hold([True]*5+[False]*0)))
-
-    #twop = HandAnalyzer('acad9h8s2c')
-    #print(twop.two_pair(twop.hold([True]*2 + [False]*3)))
-
-    #print(h2.draw_for_ranks(h2.hold([True, True, False, False, False]), gsize = 2, second_pair = True))
-    #print(h2.two_pair(h2.hold([True]*2+[False]*3)))
-    #print(h2.potential_straights(['Q','9']))
-
-    junk = HandAnalyzer('ts9c8d5c2h')
-    #print(junk.analyze())
-    aces = HandAnalyzer('acadahas2c')
-    #print(aces.four_kind(aces.hold(['True']*4+[False])))
-    #print(aces.analyze())
-    h2A8 = HandAnalyzer('qd9c8d5c2c', payouts={'flush': 5,
- 'four_kind': 25,
- 'four_kind7': 50,
- 'four_kindA8': 80,
- 'full_house': 8,
- 'pair_jqka': 1,
- 'royal_flush': 800,
- 'straight': 4,
- 'straight_flush': 50,
- 'three_kind': 3,
- 'two_pair': 2})
-    h2A8.analyze()
