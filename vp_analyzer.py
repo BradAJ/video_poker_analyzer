@@ -2,6 +2,11 @@ from collections import Counter
 from itertools import combinations_with_replacement, product
 from scipy.misc import comb
 
+# GLOBALS
+RANKS = 'A23456789TJQK'
+SUITS = 'cdhs'
+STRAIGHTS = [list(RANKS+'A')[ind:ind+5] for ind in range(10)]
+
 
 class HandAnalyzer(object):
     """
@@ -22,9 +27,9 @@ class HandAnalyzer(object):
     hand: (str) Ten character string of rank/suit for 5 cards.
             rank chars: a23456789tjqk, suit chars: cdhs. Case Insensitive.
     payouts: (dict) Amount paid for a given winning hand. Accepts any subset of
-            the following keys: 'pair_jjqqkkaa', 'two_pair', 'three_kind',
+            the following keys: 'pair_jqka', 'two_pair', 'three_kind',
             'straight', 'flush', 'full_house', 'four_kind', 'straight_flush'
-            'royal_flush'
+            'royal_flush', 'four_kind7', 'four_kindA8'
     OUTPUT:
     None
     """
@@ -112,6 +117,79 @@ class HandAnalyzer(object):
         return bestholdstr, results[besthold]['expected_val']
 
 
+    def pay_current_hand(self):
+        """
+        Check to see if current hand has a winning hand. If so, return the
+        associated payout, otherwise return 0.
+        """
+        pays = self.payouts.copy()
+        groups = ['pair_jqka', 'two_pair', 'three_kind', 'full_house',
+                  'four_kind', 'four_kind7', 'four_kindA8']
+        straight_hands = ['straight', 'straight_flush', 'royal_flush']
+        flushes = ['flush', 'straight_flush', 'royal_flush']
+
+        held_r =[]
+        suits = set()
+        for r, s in self.__h:
+            held_r.append(r)
+            suits.add(s)
+
+        held_r_cnts = Counter(held_r).most_common()
+        num_suits = len(suits)
+
+        if held_r_cnts[0][1] > 1:
+            #at least a pair, so no straight_hands, no flushes
+            for strtflu in straight_hands + flushes:
+                pays[strtflu] = 0
+            if held_r_cnts[0][1] == 2:
+                for group in groups[2:]:
+                    pays[group] = 0
+                # check for two_pair
+                if held_r_cnts[1][1] == 1:
+                     pays['two_pair'] = 0
+                # check JoB
+                if held_r_cnts[0][0] not in 'JQKA':
+                    pays['pair_jqka'] = 0
+            #check full_house
+            elif held_r_cnts[0][1] == 3:
+                for group in groups[4:]:
+                    pays[group] = 0
+                if held_r_cnts[1][1] == 1:
+                    pays['full_house'] = 0
+
+            else:
+                #check special fours of a kind
+                if held_r_cnts[0][0] not in 'A8':
+                    pays['four_kindA8'] = 0
+                if held_r_cnts[0][0] != '7':
+                    pays['four_kind7'] = 0
+        else:
+            #no pairs or higher
+            for group in groups:
+                pays[group] = 0
+
+        # check for flush
+        if num_suits > 1:
+            for flush in flushes:
+                pays[flush] = 0
+
+        #check straights
+        acelow_order_d = {r:i for i, r in enumerate(RANKS)}
+        ordered_hand = ''.join(sorted(held_r, key= lambda x: acelow_order_d[x]))
+        strt_set = set([''.join(x) for x in STRAIGHTS])
+        #add royal straight to accommodate ace low ordering
+        royals = 'ATJQK'
+        strt_set.add(royals)
+        if ordered_hand not in strt_set:
+            for strt in straight_hands:
+                pays[strt] = 0
+        elif ordered_hand != royals:
+            pays['royal_flush'] = 0
+
+
+        return max(pays.values())
+
+
 class DiscardValue(object):
     """
     Given a poker hand and specifying which cards to hold/discard count ways
@@ -162,16 +240,16 @@ class DiscardValue(object):
 
         self.__specials = specials
 
-        self.__ranks = 'A23456789TJQK'
-        self.__suits = 'cdhs'
-        straight_ranks = self.__ranks + 'A'
-        self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
+        # self.__ranks = 'A23456789TJQK'
+        # self.__suits = 'cdhs'
+        # straight_ranks = self.__ranks + 'A'
+        # self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
 
         self.held_r, self.held_s, self.disc_r, self.disc_s = self.pivot_held_d()
         #NOTE to self: regex find: (held_r[^\w_])  , replace: self.$1
 
         seen_ranks = Counter(list(self.held_r) + list(self.disc_r))
-        self.__draws = Counter(self.__ranks*4) - seen_ranks
+        self.__draws = Counter(RANKS*4) - seen_ranks
 
         self.exp_val_denom = comb(47, 5 - len(self.held_r))
         self.held_r_cnts = Counter(self.held_r).most_common()
@@ -269,14 +347,14 @@ class DiscardValue(object):
 
 
         #TODO: use defaultdict?, use global for ranks string
-        undrawable_suits = {r: set() for r in self.__ranks}
+        undrawable_suits = {r: set() for r in RANKS}
         for hd in self.held_d:
             for r, s in self.held_d[hd]:
                 if hd == 'd':
                     undrawable_suits[r].add(s)
                 elif hd == 'h':
                     # 3 of 4 suits become undrawable when 1 is held
-                    converse = {x for x in self.__suits}.difference(s)
+                    converse = {x for x in SUITS}.difference(s)
                     undrawable_suits[r].update(converse)
                 else:
                     raise Exception('held_d has unexpected key: {}'.format(hd))
@@ -302,7 +380,7 @@ class DiscardValue(object):
         ways_cnt -= self.straight_flush()[0]
 
         #use defaultdict
-        undrawable_suit_cnt = {s:0 for s in self.__suits}
+        undrawable_suit_cnt = {s:0 for s in SUITS}
         for suit in list(self.held_s) + list(self.disc_s):
             undrawable_suit_cnt[suit] += 1
 
@@ -682,7 +760,7 @@ class DiscardValue(object):
         ways_cnt -= self.royal_flush()[0]
         ways_cnt -= self.straight_flush()[0]
         if held_r_cnts == []:
-            for s in self.__strts:
+            for s in STRAIGHTS:
                 ways_cnt += self.prod_list([self.__draws[r] for r in s])
             return ways_cnt, exp_val_denom
         elif held_r_cnts[0][1] != 1:
@@ -706,11 +784,11 @@ class DiscardValue(object):
         Returns these.
         """
         if include_royals:
-            strts_cop = self.__strts[:]
-            enum_strts = list(enumerate(self.__strts))
+            strts_cop = STRAIGHTS[:]
+            enum_strts = list(enumerate(STRAIGHTS))
         else:
-            strts_cop = self.__strts[:-1]
-            enum_strts = list(enumerate(self.__strts[:-1]))
+            strts_cop = STRAIGHTS[:-1]
+            enum_strts = list(enumerate(STRAIGHTS[:-1]))
 
         draws_cop = self.__draws.copy()
         for r in self.held_r:
@@ -841,3 +919,6 @@ class DiscardValue(object):
                 multiplier *= comb(num_ranks, cnt) * suit_cnt_key ** cnt
             kick_cnt += multiplier
         return kick_cnt
+
+if __name__ == '__main__':
+    print(HandAnalyzer('7c7h7d8s7s'))

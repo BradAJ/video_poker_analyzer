@@ -1,7 +1,7 @@
 from collections import Counter
 from scipy.misc import comb
 import unittest
-from vp_analyzer_refactor import HandAnalyzer, DiscardValue
+from vp_analyzer import HandAnalyzer, DiscardValue
 
 
 class Test_vp_analyzer(unittest.TestCase):
@@ -73,6 +73,24 @@ class Test_vp_analyzer(unittest.TestCase):
         aaa_best = aaa.analyze(return_full_analysis = False)
         self.assertEqual(aaa_best[0], ''.join(('Ac', 'Ad', 'Ah', 'XX', 'XX')))
         self.assertEqual(round(aaa_best[1], 5), round(6.5818686401480111, 5))
+
+    def test_pay_current_hand(self):
+        for handobj in [self.h1, self.h2, self.junk]:
+            self.assertEqual(handobj.pay_current_hand(), 0)
+
+        fours_str = ['7c7h7d8s7s', '8c8d7h8h8s', 'As7sAhAdAc', 'QcQdQhQs2c']
+        for fks, pay in zip(fours_str, [50, 80, 80, 25]):
+            self.assertEqual(HandAnalyzer(fks).pay_current_hand(), 25)
+            foursA8 = HandAnalyzer(fks, payouts = self.aces8s_d)
+            self.assertEqual(foursA8.pay_current_hand(), pay)
+
+
+        normal_wins = [('ackcqcjctc', 800), ('ac5c3c2c4c', 50),
+                       ('jc2cjd2djs', 9), ('7hKh9h4h2h', 6), ('Ac2d5d4d3d', 4),
+                       ('AcKdTdQdJd', 4), ('9h7c8sTcJc', 4), ('7c8h7h3s7s', 3),
+                       ('2c5d2h5s9c', 2), ('AcJc8s4dJd', 1), ('TsTdAs7c4h', 0)]
+        for hand, pay in normal_wins:
+            self.assertEqual(HandAnalyzer(hand).pay_current_hand(), pay)
 
 
     def test_pivot_held_d(self):
