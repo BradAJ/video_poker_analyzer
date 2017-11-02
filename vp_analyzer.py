@@ -59,6 +59,10 @@ class HandAnalyzer(object):
 
 
     def hold(self, held = [True]*5):
+        """
+        Given a list of 5 bools, one for each card (True means hold the card),
+        return a dict of card tuples with keys 'h' for hold and 'd' for discard.
+        """
         held_d = {'h':[], 'd':[]}
         for card, held_bool in zip(self.__h, held):
             if held_bool:
@@ -69,6 +73,28 @@ class HandAnalyzer(object):
 
 
     def analyze(self, return_full_analysis = True):
+        """
+        From each of the 32 possible hold/discard situations for a hand,
+        calculate the number of ways of making each hand in self.payouts,
+        use these counts (and the payouts) to calculate the expected value of
+        each discard strategy for the hand.
+
+        INPUT:
+        return_full_analysis (bool, default = True) See OUTPUT for explanation.
+
+        OUTPUT:
+        return_full_analysis == True: Return a nested dict, where each
+            discard strategy contains a dict of count info as a tuple of
+            (count, total number of results) for each winning hand.
+                             == False: Only return the discard strategy with the
+            highest expected value (prefer more discards in case of ties) and
+            that expected value as a tuple. This minimal return size is useful
+            for work that analyzes large numbers of hands.
+
+            In both cases the discard strategy is represented as a 10 character
+            string, where the discarded cards are represented by 'XX'.
+        """
+
         win_props = {}
 
         count_wins_kwargs = {'wins': self.payouts.keys()}
@@ -83,7 +109,7 @@ class HandAnalyzer(object):
                 expected_val += self.payouts[win] * cnt_tup[0] / cnt_tup[1]
 
             ways_to_win['expected_val'] = expected_val
-            hand = tuple(card if held else 'XX' for card, held in zip(self.hand, hold_l))
+            hand = ''.join([card if held else 'XX' for card, held in zip(self.hand, hold_l)])
             win_props[hand] = ways_to_win
 
         if return_full_analysis:
@@ -94,6 +120,10 @@ class HandAnalyzer(object):
 
     @staticmethod
     def best_disc(results):
+        """
+        Helper function for .analyze(), sort results by expected value and return
+        the discard string
+        """
         max_ev = 0
         best_ev_disc = 0
         for holddisc in results:
@@ -921,4 +951,4 @@ class DiscardValue(object):
         return kick_cnt
 
 if __name__ == '__main__':
-    print(HandAnalyzer('7c7h7d8s7s'))
+    print(HandAnalyzer('7c7h7d8s7s').analyze(return_full_analysis=True))

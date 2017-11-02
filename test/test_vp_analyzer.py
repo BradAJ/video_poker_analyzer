@@ -30,34 +30,34 @@ class Test_vp_analyzer(unittest.TestCase):
     def test_analyze(self):
         #based on results from: https://www.videopokertrainer.org/calculator/
         junk_plays = self.junk.analyze()
-        disc_all = ('XX','XX','XX','XX','XX')
+        disc_all = 'X'*10
         exp_val_discardjunk = junk_plays[disc_all]['expected_val']
         self.assertEqual(round(exp_val_discardjunk, 5), round(0.35843407071, 5))
 
-        exp_val_holdt = junk_plays[('Ts', 'XX', 'XX', 'XX', 'XX')]['expected_val']
+        exp_val_holdt = junk_plays['TsXXXXXXXX']['expected_val']
         self.assertEqual(round(exp_val_holdt, 5), round(0.32971715302, 5))
 
         h2_plays = self.h2.analyze()
-        exp_val_holdq = h2_plays[('Qd', 'XX', 'XX', 'XX', 'XX')]['expected_val']
+        exp_val_holdq = h2_plays['QdXXXXXXXX']['expected_val']
         self.assertEqual(round(exp_val_holdq, 5), round(0.4741961707734, 5))
 
-        exp_val_holdq8 = h2_plays[('Qd', 'XX', '8d', 'XX', 'XX')]['expected_val']
+        exp_val_holdq8 = h2_plays['QdXX8dXXXX']['expected_val']
         self.assertEqual(round(exp_val_holdq8, 5), round(0.41036077705827, 5))
 
         h3_plays = self.h3.analyze()
-        exp_val_holdaa = h3_plays[('XX', 'XX', 'XX', 'Ac', 'Ad')]['expected_val']
+        exp_val_holdaa = h3_plays['XXXXXXAcAd']['expected_val']
         self.assertEqual(round(exp_val_holdaa, 5), round(1.536540240518, 5))
 
-        exp_val_holdaa8 = h3_plays[('XX', 'XX', '8d', 'Ac', 'Ad')]['expected_val']
+        exp_val_holdaa8 = h3_plays['XXXX8dAcAd']['expected_val']
         self.assertEqual(round(exp_val_holdaa8, 5), round(1.4162812210915, 5))
 
         lowp = HandAnalyzer('qcjckdtdth').analyze()
-        exp_val_qjkt = lowp[('Qc', 'Jc', 'Kd', 'Td', 'XX')]['expected_val']
+        exp_val_qjkt = lowp['QcJcKdTdXX']['expected_val']
         self.assertEqual(round(exp_val_qjkt, 5), round(0.8723404255319, 5))
 
         h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
         h2A8_plays = h2A8.analyze()
-        exp_val_h2A8 = h2A8_plays[('Qd', 'XX', 'XX', 'XX', 'XX')]['expected_val']
+        exp_val_h2A8 = h2A8_plays['QdXXXXXXXX']['expected_val']
         self.assertEqual(round(exp_val_h2A8, 5), round(0.47119109690802569, 5))
 
         junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
