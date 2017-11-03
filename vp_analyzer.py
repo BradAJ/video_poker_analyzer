@@ -122,7 +122,8 @@ class HandAnalyzer(object):
     def best_disc(results):
         """
         Helper function for .analyze(), sort results by expected value and return
-        the discard string
+        the discard string. The hand's discard strategy is represented as a 10
+        character string, where the discarded cards are represented by 'XX'.
         """
         max_ev = 0
         best_ev_disc = 0
@@ -149,7 +150,7 @@ class HandAnalyzer(object):
 
     def pay_current_hand(self):
         """
-        Check to see if current hand has a winning hand. If so, return the
+        Check to see if current hand is a winning hand. If so, return the
         associated payout, otherwise return 0.
         """
         pays = self.payouts.copy()
@@ -270,11 +271,6 @@ class DiscardValue(object):
 
         self.__specials = specials
 
-        # self.__ranks = 'A23456789TJQK'
-        # self.__suits = 'cdhs'
-        # straight_ranks = self.__ranks + 'A'
-        # self.__strts = [straight_ranks[ind:ind+5] for ind in range(10)]
-
         self.held_r, self.held_s, self.disc_r, self.disc_s = self.pivot_held_d()
         #NOTE to self: regex find: (held_r[^\w_])  , replace: self.$1
 
@@ -285,7 +281,6 @@ class DiscardValue(object):
         self.held_r_cnts = Counter(self.held_r).most_common()
 
         #TODO: make exp_val_denom, nonheld_rank_grps class attributes
-
 
 
     def draws(self):
@@ -350,7 +345,6 @@ class DiscardValue(object):
 
     def royal_flush(self):
         holding_2to9 = set(self.held_r).intersection(set('23456789')) != set()
-        exp_val_denom = comb(47, 5 - len(self.held_r))
         if holding_2to9 or (len(set(self.held_s)) > 1):
             return 0, 1
 
@@ -364,17 +358,15 @@ class DiscardValue(object):
                 discarded_royal_suits.add(card[1])
 
         if len(set(self.held_s)) == 1:
-            return 1, exp_val_denom
+            return 1, self.exp_val_denom
         else:
-            return 4 - len(discarded_royal_suits), exp_val_denom
+            return 4 - len(discarded_royal_suits), self.exp_val_denom
 
     def straight_flush(self):
         ways_cnt = 0
 
         if len(set(self.held_s)) > 1:
             return 0, 1
-        exp_val_denom = comb(47, 5 - len(self.held_r))
-
 
         #TODO: use defaultdict?, use global for ranks string
         undrawable_suits = {r: set() for r in RANKS}
@@ -396,14 +388,14 @@ class DiscardValue(object):
                     strt_miss_suits.update(undrawable_suits[r])
                 ways_cnt += 4 - len(strt_miss_suits)
 
-        return ways_cnt, exp_val_denom
+        return ways_cnt, self.exp_val_denom
 
 
     def flush(self):
         num_suits = len(set(self.held_s))
         if num_suits > 1:
             return 0, 1
-        exp_val_denom = comb(47, 5 - len(self.held_r))
+
 
         ways_cnt = 0
         ways_cnt -= self.royal_flush()[0]
@@ -420,47 +412,44 @@ class DiscardValue(object):
             for suit, udc in undrawable_suit_cnt.items():
                 ways_cnt += comb(13 - udc, len(self.disc_r))
 
-        return ways_cnt, exp_val_denom
+        return ways_cnt, self.exp_val_denom
 
 
 
     def pair_jqka(self):
-        held_r_cnts = Counter(self.held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(self.held_r))
         # nothing held
-        if held_r_cnts == []:
+        if self.held_r_cnts == []:
             draw5 = self.draw_for_ranks( gsize=2, cnt_held_only=False,
                                         pairing_jqka=True)
-            return draw5, exp_val_denom
+            return draw5, self.exp_val_denom
         # most common card is a singleton
-        elif held_r_cnts[0][1] == 1:
-            draws = self.draw_for_ranks( gsize=2, cnt_held_only=False,
+        elif self.held_r_cnts[0][1] == 1:
+            draws = self.draw_for_ranks(gsize=2, cnt_held_only=False,
                                         pairing_jqka=True)
-            return draws, exp_val_denom
-        elif held_r_cnts[0][1] == 2:
+            return draws, self.exp_val_denom
+        elif self.held_r_cnts[0][1] == 2:
             #check for holding low pair
             lows = '23456789T'
-            low_pair_bool = held_r_cnts[0][0] in lows
+            low_pair_bool = self.held_r_cnts[0][0] in lows
             #check for holding two pair
-            two_pair_bool = (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2)
+            two_pair_bool = (len(self.held_r_cnts) > 1) and (self.held_r_cnts[1][1] == 2)
             if low_pair_bool or two_pair_bool:
                 return 0, 1
 
-            #holding pair of jkqa find everything that DOESN't improve hand
+            #holding pair of jkqa find everything that DOESN'T improve hand
             #DRY this up (in three_kind too)
             draw_cnt = len(self.disc_r)
             nonheld_ranks = self.__draws.copy()
             for r in self.held_r:
                 nonheld_ranks[r] = 0
             nonheld_rank_grps = Counter(nonheld_ranks.values())
-            return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
+            kicks = self.count_ways2kick(nonheld_rank_grps, draw_cnt)
+            return kicks, self.exp_val_denom
         else:
             return 0, 1
 
 
     def two_pair(self):
-        held_r_cnts = Counter(self.held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(self.held_r))
         nonheld_ranks = self.__draws.copy()
         held_r_avail = {}
         for r in self.held_r:
@@ -471,10 +460,10 @@ class DiscardValue(object):
         held_r_avail_grps = Counter(held_r_avail.values())
         draw_cnt = len(self.disc_r)
         # nothing held
-        if held_r_cnts == []:
-            return self.draw_2pair(nonheld_rank_grps, draw_cnt = 5), exp_val_denom
+        if self.held_r_cnts == []:
+            return self.draw_2pair(nonheld_rank_grps, draw_cnt = 5), self.exp_val_denom
         # most common card is a singleton
-        elif held_r_cnts[0][1] == 1:
+        elif self.held_r_cnts[0][1] == 1:
             ways_cnt = 0
             if draw_cnt == 4:
                 #draw two pairs from the deck
@@ -491,7 +480,7 @@ class DiscardValue(object):
                     kick_ways = self.count_ways2kick(new_nhrg, num_kickers = 1)
                     ways_cnt += held_draws * rways * kick_ways
 
-                return ways_cnt, exp_val_denom
+                return ways_cnt, self.exp_val_denom
             elif draw_cnt == 3: # maybe change this block to draw_cnt in [3,2]
 
                 for havail, hrcnt in held_r_avail_grps.items():
@@ -509,27 +498,27 @@ class DiscardValue(object):
                     kick_ways = self.count_ways2kick(nonheld_rank_grps,
                                                      num_kickers=1)
                     ways_cnt += hrways2 * kick_ways
-                return ways_cnt, exp_val_denom
+                return ways_cnt, self.exp_val_denom
             elif draw_cnt == 2:
                 #draw a match for 2 of the 3 held singles
-                return self.draw_2pair(held_r_avail_grps, draw_cnt = 2), exp_val_denom
+                return self.draw_2pair(held_r_avail_grps, draw_cnt = 2), self.exp_val_denom
 
             else:
                 return 0, 1
 
-        elif held_r_cnts[0][1] == 2:
+        elif self.held_r_cnts[0][1] == 2:
             #check for holding two pair
-            if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
+            if (len(self.held_r_cnts) > 1) and (self.held_r_cnts[1][1] == 2):
                 #find everything that DOESN't improve hand
                 #DRY this up (in three_kind too)
                 #draw_cnt = len(self.disc_r)
 
                 return (self.count_ways2kick(nonheld_rank_grps, draw_cnt),
-                        exp_val_denom)
+                        self.exp_val_denom)
             else:
                 #holding a pair. take it out of consideration and look for another
                 return (self.draw_for_ranks( gsize=2, second_pair=True),
-                        exp_val_denom)
+                        self.exp_val_denom)
 
         else:
             return 0, 1
@@ -584,30 +573,28 @@ class DiscardValue(object):
 
 
     def three_kind(self):
-        held_r_cnts = Counter(self.held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(self.held_r))
         # nothing held or most common card is a singleton
-        if held_r_cnts == [] or held_r_cnts[0][1] == 1:
-            draw = self.draw_for_ranks( gsize=3, cnt_held_only=False)
-            return draw, exp_val_denom
+        if self.held_r_cnts == [] or self.held_r_cnts[0][1] == 1:
+            draw = self.draw_for_ranks(gsize=3, cnt_held_only=False)
+            return draw, self.exp_val_denom
 
-        elif held_r_cnts[0][1] == 2:
+        elif self.held_r_cnts[0][1] == 2:
             #check for holding two pair, avoid counting FH
-            if (len(held_r_cnts) > 1) and (held_r_cnts[1][1] == 2):
+            if (len(self.held_r_cnts) > 1) and (self.held_r_cnts[1][1] == 2):
                 return 0, 1
 
-            drawp = self.draw_for_ranks( gsize=3, cnt_held_only=True)
+            drawp = self.draw_for_ranks(gsize=3, cnt_held_only=True)
             #if holding a pair and a 3rd card, e.g. 'AA7', drawing '77' will be
             #counted by draw_for_ranks, but this is FH, so subtract this.
-            if (len(held_r_cnts) == 2) and (held_r_cnts[1][1] == 1):
-                rext_avail = self.__draws[held_r_cnts[1][0]]
-                return drawp - comb(rext_avail, 2), exp_val_denom
+            if (len(self.held_r_cnts) == 2) and (self.held_r_cnts[1][1] == 1):
+                rext_avail = self.__draws[self.held_r_cnts[1][0]]
+                return drawp - comb(rext_avail, 2), self.exp_val_denom
             else:
-                return drawp, exp_val_denom
+                return drawp, self.exp_val_denom
 
-        elif held_r_cnts[0][1] == 3:
+        elif self.held_r_cnts[0][1] == 3:
             #check for holding FH
-            if (len(held_r_cnts) == 2) and (held_r_cnts[1][1] == 2):
+            if (len(self.held_r_cnts) == 2) and (self.held_r_cnts[1][1] == 2):
                 return 0, 1
             else:
                 #find everything that DOESN't improve hand
@@ -617,13 +604,11 @@ class DiscardValue(object):
                 for r in self.held_r:
                     nonheld_ranks[r] = 0
                 nonheld_rank_grps = Counter(nonheld_ranks.values())
-                return self.count_ways2kick(nonheld_rank_grps, draw_cnt), exp_val_denom
+                return self.count_ways2kick(nonheld_rank_grps, draw_cnt), self.exp_val_denom
         else:
             return 0, 1
 
     def full_house(self):
-        held_r_cnts = Counter(self.held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(self.held_r))
         nonheld_ranks = self.__draws.copy()
         held_r_avail = {}
         for r in self.held_r:
@@ -636,7 +621,7 @@ class DiscardValue(object):
 
         ways_cnt = 0
         # nothing held
-        if held_r_cnts == []:
+        if self.held_r_cnts == []:
             for avail, rcnt in nonheld_rank_grps.items():
 
                 rtrips = rcnt * comb(avail, 3)
@@ -648,10 +633,10 @@ class DiscardValue(object):
                     pair_ways += prcnt * comb(pavail, 2)
 
                 ways_cnt += rtrips * pair_ways
-            return ways_cnt, exp_val_denom
+            return ways_cnt, self.exp_val_denom
 
         # most common card is a singleton
-        elif held_r_cnts[0][1] == 1:
+        elif self.held_r_cnts[0][1] == 1:
 
             if draw_cnt == 4:
                 held_draws = list(held_r_avail.values())[0] # ok since only holding 1
@@ -662,32 +647,32 @@ class DiscardValue(object):
                                                    draw_only=True)
                     ways_cnt += up_held * draw_grp
 
-                return ways_cnt, exp_val_denom
+                return ways_cnt, self.exp_val_denom
 
             elif draw_cnt == 3:
                 avail1, avail2 = list(held_r_avail.values())
                 ways_cnt += comb(avail1, 2) * comb(avail2, 1)
                 ways_cnt += comb(avail1, 1) * comb(avail2, 2)
 
-                return ways_cnt, exp_val_denom
+                return ways_cnt, self.exp_val_denom
 
             else:
                 return 0, 1
 
-        elif held_r_cnts[0][1] == 2:
+        elif self.held_r_cnts[0][1] == 2:
             if draw_cnt in [3, 2]:
                 #tripup held pair
-                held_draws = self.__draws[held_r_cnts[0][0]]
+                held_draws = self.__draws[self.held_r_cnts[0][0]]
                 tripup_pair = comb(held_draws, 1)
                 if draw_cnt == 3:
                     #draw trips to go with pair
-                    ways_cnt += self.draw_for_ranks( gsize=3, draw_cnt=3,
+                    ways_cnt += self.draw_for_ranks(gsize=3, draw_cnt=3,
                                                     draw_only=True)
                     #draw pair to go with tripup pair
-                    draws = self.draw_for_ranks( gsize=2, draw_cnt=2,
+                    draws = self.draw_for_ranks(gsize=2, draw_cnt=2,
                                                 draw_only=True)
                 elif draw_cnt == 2:
-                    sing_avail = self.__draws[held_r_cnts[1][0]]
+                    sing_avail = self.__draws[self.held_r_cnts[1][0]]
                     #trip up held singleton
                     ways_cnt += comb(sing_avail, 2)
                     #pair up held singleton
@@ -695,26 +680,26 @@ class DiscardValue(object):
 
                 ways_cnt += tripup_pair * draws
 
-                return ways_cnt, exp_val_denom
+                return ways_cnt, self.exp_val_denom
             elif draw_cnt == 1:
                 #check for holding two pair
-                if held_r_cnts[1][1] == 2:
-                    return sum(held_r_avail.values()), exp_val_denom
+                if self.held_r_cnts[1][1] == 2:
+                    return sum(held_r_avail.values()), self.exp_val_denom
                 else:
                     return 0, 1
             else:
                 return 0, 1
-        elif held_r_cnts[0][1] == 3:
+        elif self.held_r_cnts[0][1] == 3:
             #draw pair with trips,
             if draw_cnt == 2:
-                draw_pair = self.draw_for_ranks( gsize=2, draw_cnt=2,
+                draw_pair = self.draw_for_ranks(gsize=2, draw_cnt=2,
                                                 draw_only=True)
-                return draw_pair, exp_val_denom
+                return draw_pair, self.exp_val_denom
             #trips + pairup held singleton
             elif draw_cnt == 1:
                 # count avail cards to pairup held singleton
-                return comb(self.__draws[held_r_cnts[1][0]], 1), exp_val_denom
-            elif draw_cnt == 0 and held_r_cnts[1][1] == 2:
+                return comb(self.__draws[self.held_r_cnts[1][0]], 1), self.exp_val_denom
+            elif draw_cnt == 0 and self.held_r_cnts[1][1] == 2:
                 #holding FH
                 return 1, 1
             else:
@@ -735,33 +720,28 @@ class DiscardValue(object):
             self.four_kindA8()
             self.four_kind7()
         """
-        held_r_cnts = Counter(self.held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(self.held_r))
 
-
-        draw = self.draw_for_ranks( gsize=4, cnt_held_only=False)
+        draw = self.draw_for_ranks(gsize=4, cnt_held_only=False)
         if specials is None:
-            return draw, exp_val_denom
+            return draw, self.exp_val_denom
         else:
             dec_cnt = 0
             for spec in specials:
                 dec_cnt += self.four_kind_special(spec)
-            return draw - dec_cnt, exp_val_denom
+            return draw - dec_cnt, self.exp_val_denom
 
 
     def four_kindA8(self):
         """Bonus for four of kind with Aces or Eights"""
-        exp_val_denom = comb(47, 5 - len(self.held_r))
         ways_cnt = 0
         for spec in ['A', '8']:
             ways_cnt += self.four_kind_special(spec)
-        return ways_cnt, exp_val_denom
+        return ways_cnt, self.exp_val_denom
 
 
     def four_kind7(self):
         """Bonus for four of kind with Sevens"""
-        exp_val_denom = comb(47, 5 - len(self.held_r))
-        return self.four_kind_special('7'), exp_val_denom
+        return self.four_kind_special('7'), self.exp_val_denom
 
 
     def four_kind_special(self, special_card):
@@ -782,18 +762,15 @@ class DiscardValue(object):
 
 
     def straight(self):
-        held_r_cnts = Counter(self.held_r).most_common()
-        exp_val_denom = comb(47, 5 - len(self.held_r))
-
         ways_cnt = 0
         #subtract royal and straight flush from the count
         ways_cnt -= self.royal_flush()[0]
         ways_cnt -= self.straight_flush()[0]
-        if held_r_cnts == []:
+        if self.held_r_cnts == []:
             for s in STRAIGHTS:
                 ways_cnt += self.prod_list([self.__draws[r] for r in s])
-            return ways_cnt, exp_val_denom
-        elif held_r_cnts[0][1] != 1:
+            return ways_cnt, self.exp_val_denom
+        elif self.held_r_cnts[0][1] != 1:
             #holding a pair or more
             return 0, 1
         else:
@@ -802,7 +779,7 @@ class DiscardValue(object):
                 if sc is not None:
                     ways_cnt += self.prod_list([draws_cop[r] for r in sc])
 
-            return ways_cnt, exp_val_denom
+            return ways_cnt, self.exp_val_denom
 
 
     def potential_straights(self, include_royals = True):
@@ -837,11 +814,14 @@ class DiscardValue(object):
             accum *= el
         return accum
 
-    def draw_for_ranks(self, gsize = 3, cnt_held_only = False, pairing_jqka = False, second_pair = False, draw_cnt = None, draw_only = False):
+    def draw_for_ranks(self, gsize = 3, cnt_held_only = False,
+                       pairing_jqka = False, second_pair = False,
+                       draw_cnt = None, draw_only = False):
         """
         Given held cards and discards count ways to draw for pairs/3kind/4_of_a_kind
         based on collecting them purely from draw pile or adding to the held cards
 
+        INPUT:
         gsize: (2, 3, or 4) Size of group of cards to be made. e.g. pair = 2
 
         cnt_held_only: (bool). True: Obtain group by adding to held cards only,
@@ -856,6 +836,7 @@ class DiscardValue(object):
         second_pair: (bool). True: Remove from consideration a pair of cards.
                         Used for counting two_pair when holding a pair
 
+        OUTPUT: (int)
         """
 
         draw_cnt = len(self.disc_r) if draw_cnt is None else draw_cnt
