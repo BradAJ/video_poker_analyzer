@@ -104,34 +104,34 @@ class Test_vp_analyzer(unittest.TestCase):
 
     def test_royal_flush(self):
         h1aj = DiscardValue(held_d = self.h1.hold([True]*2 + [False]*3))
-        self.assertEqual(h1aj.royal_flush(), (0, 1))
+        self.assertEqual(h1aj.royal_flush(), 0)
 
         holda = DiscardValue(held_d = self.h1.hold([True] + [False]*4))
-        self.assertEqual(holda.royal_flush(), (1, comb(47, 4)))
+        self.assertEqual(holda.royal_flush(), 1)
 
         discard_all = DiscardValue(held_d = self.h1.hold([False]*5))
-        self.assertEqual(discard_all.royal_flush(), (1, comb(47, 5)))
+        self.assertEqual(discard_all.royal_flush(), 1)
 
         discard_h2 = DiscardValue(held_d = self.h2.hold([False]*5))
-        self.assertEqual(discard_h2.royal_flush(), (3, comb(47, 5)))
+        self.assertEqual(discard_h2.royal_flush(), 3)
 
     def test_three_kind(self):
         discard_h2 = DiscardValue(held_d = self.h2.hold([False]*5))
-        self.assertEqual(discard_h2.three_kind(), (31502, comb(47, 5)))
+        self.assertEqual(discard_h2.three_kind(), 31502)
 
         h3holdaa = DiscardValue(held_d = self.h3.hold([False]*3 + [True]*2))
-        self.assertEqual(h3holdaa.three_kind(), (1854, comb(47, 3)))
+        self.assertEqual(h3holdaa.three_kind(), 1854)
 
         h3hold8aa = DiscardValue(held_d = self.h3.hold([False]*2 + [True]*3))
-        self.assertEqual(h3hold8aa.three_kind(), (84, comb(47, 2)))
+        self.assertEqual(h3hold8aa.three_kind(), 84)
 
         # fh = HandAnalyzer('qdqcqh2s2d')
-        # self.assertEqual(fh.three_kind(fh.hold([True]*5)), (0, 1))
-        # self.assertEqual(fh.three_kind(fh.hold([True]*3+[False]*2)), (968, comb(47, 2)))
+        # self.assertEqual(fh.three_kind(fh.hold([True]*5)), 0)
+        # self.assertEqual(fh.three_kind(fh.hold([True]*3+[False]*2)), 968)
         holdfh = DiscardValue(hand_str = 'qdqcqh2s2d', hold_str = 'qdqcqh2s2d')
-        self.assertEqual(holdfh.three_kind(), (0, 1))
+        self.assertEqual(holdfh.three_kind(), 0)
         qqq = DiscardValue(held_d=HandAnalyzer('qdqcqh2s2d').hold([True]*3+[False]*2))
-        self.assertEqual(qqq.three_kind(), (968, comb(47, 2)))
+        self.assertEqual(qqq.three_kind(), 968)
 
 
 
@@ -146,199 +146,199 @@ class Test_vp_analyzer(unittest.TestCase):
 
     def test_pair_jqka(self):
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        self.assertEqual(holdq.pair_jqka(), (45456, comb(47, 4)))
+        self.assertEqual(holdq.pair_jqka(), 45456)
 
         holdaa = DiscardValue(held_d = self.h3.hold([False]*3 + [True]*2))
-        self.assertEqual(holdaa.pair_jqka(), (11559, comb(47, 3)))
+        self.assertEqual(holdaa.pair_jqka(), 11559)
 
         twop = DiscardValue(held_d=HandAnalyzer('acad8h8s2c').hold([True]*2 + [False]*3))
-        self.assertEqual(twop.pair_jqka(), (11520, comb(47, 3)))
+        self.assertEqual(twop.pair_jqka(), 11520)
 
         nohi = DiscardValue(held_d=HandAnalyzer('td9c8d5c2c').hold([False]*5))
-        self.assertEqual(nohi.pair_jqka(), (241680, comb(47, 5)))
+        self.assertEqual(nohi.pair_jqka(), 241680)
 
         lowp = DiscardValue(held_d=HandAnalyzer('qcjckdtdth').hold([True]*4+[False]))
-        self.assertEqual(lowp.pair_jqka(), (9, comb(47, 1)))
+        self.assertEqual(lowp.pair_jqka(), 9)
 
         threek = DiscardValue(held_d=HandAnalyzer('4h4c5h3h4s').hold([True]*5))
-        self.assertEqual(threek.pair_jqka(), (0, 1))
+        self.assertEqual(threek.pair_jqka(), 0)
 
 
     def test_four_kind(self):
         holdaa = DiscardValue(held_d = self.h3.hold([False]*3 + [True]*2))
-        self.assertEqual(holdaa.four_kind(), (45, comb(47, 3)))
+        self.assertEqual(holdaa.four_kind(), 45)
 
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        self.assertEqual(holdq.four_kind(), (52, comb(47, 4)))
+        self.assertEqual(holdq.four_kind(), 52)
 
         h3hold8aa = DiscardValue(held_d = self.h3.hold([False]*2 + [True]*3))
-        self.assertEqual(h3hold8aa.four_kind(), (1, comb(47, 2)))
+        self.assertEqual(h3hold8aa.four_kind(), 1)
 
         discard_h2 = DiscardValue(held_d = self.h2.hold([False]*5))
-        self.assertEqual(discard_h2.four_kind(), (344, comb(47, 5)))
+        self.assertEqual(discard_h2.four_kind(), 344)
 
         fh = DiscardValue(held_d=HandAnalyzer('qdqcqh2s2d').hold([True]*3 + [False]*2))
-        self.assertEqual(fh.four_kind(), (46, comb(47, 2)))
+        self.assertEqual(fh.four_kind(), 46)
 
         fourk = DiscardValue(held_d=HandAnalyzer('qcqdqhqs2c').hold([True]*4 + [False]))
-        self.assertEqual(fourk.four_kind(), (47, comb(47, 1)))
+        self.assertEqual(fourk.four_kind(), 47)
 
         h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
         h2A8holdq = DiscardValue(held_d=h2A8.hold([True]+[False]*4))
         h2A8holdq8 = DiscardValue(held_d=h2A8.hold([True,False,True]+[False]*2))
         spec = ['A', '7', '8']
-        self.assertEqual(h2A8holdq.four_kind(specials=spec), (50, comb(47, 4)))
-        self.assertEqual(h2A8holdq8.four_kind(specials=spec), (1, comb(47, 3)))
+        self.assertEqual(h2A8holdq.four_kind(specials=spec), 50)
+        self.assertEqual(h2A8holdq8.four_kind(specials=spec), 1)
 
         junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
         j6disc = DiscardValue(held_d=junk6.hold([False]*5))
-        self.assertEqual(j6disc.four_kind(specials=spec), (215, comb(47, 5)))
+        self.assertEqual(j6disc.four_kind(specials=spec), 215)
 
     def test_two_pair(self):
         twop = HandAnalyzer('acad8h8s2c')
         twopdv1 = DiscardValue(held_d=twop.hold([True]*4 + [False]))
         twopdv2 = DiscardValue(held_d=twop.hold([True]*5))
         twopdv3 = DiscardValue(held_d=twop.hold([True]*3 + [False]*2))
-        self.assertEqual(twopdv1.two_pair(), (43, comb(47, 1)))
-        self.assertEqual(twopdv2.two_pair(), (1, 1))
-        self.assertEqual(twopdv3.two_pair(), (149, comb(47, 2)))
+        self.assertEqual(twopdv1.two_pair(), 43)
+        self.assertEqual(twopdv2.two_pair(), 1)
+        self.assertEqual(twopdv3.two_pair(), 149)
 
         discard_h2 = DiscardValue(held_d = self.h2.hold([False]*5))
-        self.assertEqual(discard_h2.two_pair(), (71802, comb(47, 5)))
+        self.assertEqual(discard_h2.two_pair(), 71802)
 
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        self.assertEqual(holdq.two_pair(), (8874, comb(47, 4)))
+        self.assertEqual(holdq.two_pair(), 8874)
 
         holdq9 = DiscardValue(held_d = self.h2.hold([True]*2 + [False]*3))
-        self.assertEqual(holdq9.two_pair(), (711, comb(47, 3)))
+        self.assertEqual(holdq9.two_pair(), 711)
 
         holdq98 = DiscardValue(held_d = self.h2.hold([True]*3 + [False]*2))
-        self.assertEqual(holdq98.two_pair(), (27, comb(47, 2)))
+        self.assertEqual(holdq98.two_pair(), 27)
 
         hold98a = DiscardValue(held_d = self.h3.hold([False, True, True, True, False]))
-        self.assertEqual(hold98a.two_pair(), (21, comb(47, 2)))
+        self.assertEqual(hold98a.two_pair(), 21)
 
         holdq985 = DiscardValue(held_d = self.h2.hold([True]*4 + [False]*1))
-        self.assertEqual(holdq985.two_pair(), (0, 1))
+        self.assertEqual(holdq985.two_pair(), 0)
 
         h3hold8aa = DiscardValue(held_d = self.h3.hold([False]*2 + [True]*3))
-        self.assertEqual(h3hold8aa.two_pair(), (186, comb(47, 2)))
+        self.assertEqual(h3hold8aa.two_pair(), 186)
 
         holdaa = DiscardValue(held_d = self.h3.hold([False]*3 + [True]*2))
-        self.assertEqual(holdaa.two_pair(), (2592, comb(47, 3)))
+        self.assertEqual(holdaa.two_pair(), 2592)
 
         discaa = DiscardValue(held_d = self.h3.hold([True]*3 + [False]*2))
-        self.assertEqual(discaa.two_pair(), (27, comb(47, 2)))
+        self.assertEqual(discaa.two_pair(), 27)
 
         fourk = DiscardValue(held_d=HandAnalyzer('qcqdqhqs2c').hold([True]*4 + [False]))
-        self.assertEqual(fourk.two_pair(), (0, 1))
+        self.assertEqual(fourk.two_pair(), 0)
 
         fh = DiscardValue(held_d=HandAnalyzer('qdqcqh2s2d').hold([True]*5))
-        self.assertEqual(fh.two_pair(), (0, 1))
+        self.assertEqual(fh.two_pair(), 0)
 
     def test_full_house(self):
         discard_h2 = DiscardValue(held_d = self.h2.hold([False]*5))
-        self.assertEqual(discard_h2.full_house(), (2124, comb(47, 5)))
+        self.assertEqual(discard_h2.full_house(), 2124)
 
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        self.assertEqual(holdq.full_house(), (288, comb(47, 4)))
+        self.assertEqual(holdq.full_house(), 288)
 
         holdq9 = DiscardValue(held_d = self.h2.hold([True]*2 + [False]*3))
-        self.assertEqual(holdq9.full_house(), (18, comb(47, 3)))
+        self.assertEqual(holdq9.full_house(), 18)
 
         holdq98 = DiscardValue(held_d = self.h2.hold([True]*3 + [False]*2))
-        self.assertEqual(holdq98.full_house(), (0, 1))
+        self.assertEqual(holdq98.full_house(), 0)
 
         holdaa = DiscardValue(held_d = self.h3.hold([False]*3 + [True]*2))
-        self.assertEqual(holdaa.full_house(), (165, comb(47, 3)))
+        self.assertEqual(holdaa.full_house(), 165)
 
         h3hold8aa = DiscardValue(held_d = self.h3.hold([False]*2 + [True]*3))
-        self.assertEqual(h3hold8aa.full_house(), (9, comb(47, 2)))
+        self.assertEqual(h3hold8aa.full_house(), 9)
 
         trips = HandAnalyzer('qcqdqh7c2d')
         tripsonly = DiscardValue(held_d=trips.hold([True]*3+[False]*2))
-        self.assertEqual(tripsonly.full_house(), (66, comb(47, 2)))
+        self.assertEqual(tripsonly.full_house(), 66)
         tripsp1 = DiscardValue(held_d=trips.hold([True]*4+[False]))
-        self.assertEqual(tripsp1.full_house(), (3, comb(47, 1)))
+        self.assertEqual(tripsp1.full_house(), 3)
 
         twop = DiscardValue(held_d=HandAnalyzer('acad8h8s2c').hold([True]*4 + [False]))
-        self.assertEqual(twop.full_house(), (4, comb(47, 1)))
+        self.assertEqual(twop.full_house(), 4)
 
         fh1 = DiscardValue(held_d=HandAnalyzer('qdqcqh2s2d').hold([True]*5))
-        self.assertEqual(fh1.full_house(), (1, 1))
+        self.assertEqual(fh1.full_house(), 1)
 
         fh2 = DiscardValue(held_d=HandAnalyzer('qdqcqh2s2d').hold([True]*4 + [False]))
-        self.assertEqual(fh2.full_house(), (2, comb(47, 1)))
+        self.assertEqual(fh2.full_house(), 2)
 
 
     def test_straight(self):
         discard_h2 = DiscardValue(held_d = self.h2.hold([False]*5))
-        self.assertEqual(discard_h2.straight(), (5832, comb(47, 5)))
+        self.assertEqual(discard_h2.straight(), 5832)
 
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        self.assertEqual(holdq.straight(), (590, comb(47, 4)))
+        self.assertEqual(holdq.straight(), 590)
 
         holdq9 = DiscardValue(held_d = self.h2.hold([True]*2 + [False]*3))
-        self.assertEqual(holdq9.straight(), (112, comb(47, 3)))
+        self.assertEqual(holdq9.straight(), 112)
 
         holdq98 = DiscardValue(held_d = self.h2.hold([True]*3 + [False]*2))
-        self.assertEqual(holdq98.straight(), (16, comb(47, 2)))
+        self.assertEqual(holdq98.straight(), 16)
 
     def test_straight_flush(self):
         discard_h2 = DiscardValue(held_d = self.h2.hold([False]*5))
-        self.assertEqual(discard_h2.straight_flush(), (21, comb(47, 5)))
+        self.assertEqual(discard_h2.straight_flush(), 21)
 
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        self.assertEqual(holdq.straight_flush(), (1, comb(47, 4)))
+        self.assertEqual(holdq.straight_flush(), 1)
 
         h1aj = DiscardValue(held_d = self.h1.hold([True]*2+[False]*3))
-        self.assertEqual(h1aj.straight_flush(), (0, 1))
+        self.assertEqual(h1aj.straight_flush(), 0)
 
 
         junkd = DiscardValue(held_d = self.junk.hold([False]*5))
-        self.assertEqual(junkd.straight_flush(), (16, comb(47, 5)))
+        self.assertEqual(junkd.straight_flush(), 16)
         junkt = DiscardValue(held_d = self.junk.hold([True]+[False]*4))
-        self.assertEqual(junkt.straight_flush(), (4, comb(47, 4)))
+        self.assertEqual(junkt.straight_flush(), 4)
         junk8 = DiscardValue(held_d = self.junk.hold([False, False, True, False, False]))
-        self.assertEqual(junk8.straight_flush(), (5, comb(47, 4)))
+        self.assertEqual(junk8.straight_flush(), 5)
 
     def test_flush(self):
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        self.assertEqual(holdq.flush(), (328, comb(47, 4)))
+        self.assertEqual(holdq.flush(), 328)
 
         holdq9 = DiscardValue(held_d = self.h2.hold([True]*2 + [False]*3))
-        self.assertEqual(holdq9.flush(), (0, 1))
+        self.assertEqual(holdq9.flush(), 0)
 
         holdq8 = DiscardValue(held_d = self.h2.hold([True, False, True, False, False]))
-        self.assertEqual(holdq8.flush(), (164, comb(47, 3)))
+        self.assertEqual(holdq8.flush(), 164)
 
 
         junkd = DiscardValue(held_d = self.junk.hold([False]*5))
-        self.assertEqual(junkd.flush(), (2819, comb(47, 5)))
+        self.assertEqual(junkd.flush(), 2819)
         junkt = DiscardValue(held_d = self.junk.hold([True]+[False]*4))
-        self.assertEqual(junkt.flush(), (490, comb(47, 4)))
+        self.assertEqual(junkt.flush(), 490)
 
     def test_four_kindA8(self):
 
         h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
         h2A8dv = DiscardValue(held_d=h2A8.hold([True]+[False]*4))
-        self.assertEqual(h2A8dv.four_kindA8(), (1, comb(47, 4)))
+        self.assertEqual(h2A8dv.four_kindA8(), 1)
 
         junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
         junk6dv = DiscardValue(held_d=junk6.hold([False]*5))
-        self.assertEqual(junk6dv.four_kindA8(), (86, comb(47, 5)))
+        self.assertEqual(junk6dv.four_kindA8(), 86)
 
         aaa = HandAnalyzer('ACADAH9CQH',payouts = self.aces8s_d)
         aaadv = DiscardValue(held_d=aaa.hold([True]*3+[False]*2))
-        self.assertEqual(aaadv.four_kindA8(), (46, comb(47, 2)))
+        self.assertEqual(aaadv.four_kindA8(), 46)
 
     def test_four_kind7(self):
         h2A8 = HandAnalyzer(''.join(self.h2.hand), payouts = self.aces8s_d)
         h2A8dv = DiscardValue(held_d=h2A8.hold([True]+[False]*4))
-        self.assertEqual(h2A8dv.four_kind7(), (1, comb(47, 4)))
+        self.assertEqual(h2A8dv.four_kind7(), 1)
         h2A8dv2 = DiscardValue(held_d=h2A8.hold([True,False,True]+[False]*2))
-        self.assertEqual(h2A8dv2.four_kind7(), (0, comb(47, 3)))
+        self.assertEqual(h2A8dv2.four_kind7(), 0)
 
         junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
         junk6dv = DiscardValue(held_d=junk6.hold([False]*5))
-        self.assertEqual(junk6dv.four_kind7(),(43, comb(47, 5)))
+        self.assertEqual(junk6dv.four_kind7(), 43)
