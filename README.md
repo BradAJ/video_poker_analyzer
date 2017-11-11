@@ -20,37 +20,35 @@ There are nearly 2.6 million unique poker hands (assuming 5 cards from a 52 card
 
 The table for "9-6 Jacks or Better", which is the original standard for video poker is as follows:
 
-```
- Hand | Multiplier
-------+-------
-Royal Flush | 800
-Straight Flush | 50
-Four of a Kind | 25
-Full House | 9
-Flush | 6
-Straight | 4
-Three of a Kind | 3
-Two Pair | 2
-Pair J, Q, K, or A | 1
-```
+| Hand | Multiplier |
+| :--- | ---: |
+| Royal Flush | 800 |
+| Straight Flush | 50 |
+| Four of a Kind | 25 |
+| Full House | 9 |
+| Flush | 6 |
+| Straight | 4 |
+| Three of a Kind | 3 |
+| Two Pair | 2 |
+| Pair J, Q, K, or A | 1 |
+
 Note: This table includes a bonus for a Royal Flush that is typically available when your bet size is set to "Max coins" (usually 5x the minimum bet). Also, video poker machines typically pay nothing for pairs of twos through tens.
 
 Running `all_hands_analysis.py` with the above payout table and taking the mean of the expected values results in: 0.99544. This is consistent with published expectations, such as those available at [Wizard of Odds](https://wizardofodds.com/games/video-poker/).
 
 Another variant where I have calculated strategies and expected values is known as "Aces and Eights". For the payout table below, optimal long-term play has an expected value of: 0.99782, again consistent with published expectations.
 
-```
- Hand | Multiplier
-------+-------
-Royal Flush | 800
-Straight Flush | 50
-Four As, or 8s | 80
-Four 7s | 50
-Other Four of a Kind | 25
-Full House | 8
-Flush | 5
-Straight | 4
-Three of a Kind | 3
-Two Pair | 2
-Pair J, Q, K, or A | 1
-```
+
+| Hand | Multiplier |
+| :--- | ---: |
+| Royal Flush | 800 |
+| Straight Flush | 50 |
+| Four As, or 8s | 80 |
+| Four 7s | 50 |
+| Other Four of a Kind | 25 |
+| Full House | 8 |
+| Flush | 5 |
+| Straight | 4 |
+| Three of a Kind | 3 |
+| Two Pair | 2 |
+| Pair J, Q, K, or A | 1 |
