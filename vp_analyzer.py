@@ -35,7 +35,7 @@ class HandAnalyzer(object):
     """
 
     def __init__(self, hand, payouts = None):
-        self.__specials = [] #special 4kinds ranks see: DiscardValue.four_kind_special()
+        self.__specials = [] #special 4kinds ranks see: DiscardValue._four_kind_special()
         if payouts is None:
             #Payout for "9-6 Jacks or Better Video Poker"
             self.payouts = {'pair_jqka': 1, 'two_pair': 2, 'three_kind': 3,
@@ -229,9 +229,7 @@ class DiscardValue(object):
     Aces and Eights variant).
 
     Methods named after poker hands (e.g. royal_flush, four_kind, full_house)
-    return a tuple-pair of:
-    (counts of ways to make the hand, count of other possible hands)
-    If there are no ways to make the hand then they return: (0, 1)
+    return counts of ways to make the hand.
 
     All other methods, except count_wins, are helper functions for these poker
     hand methods.
@@ -391,7 +389,7 @@ class DiscardValue(object):
                     undrawable_suits[r].update(converse)
                 else:
                     raise Exception('held_d has unexpected key: {}'.format(hd))
-        po_strts, _ = self.potential_straights(include_royals = False)
+        po_strts, _ = self._potential_straights(include_royals = False)
         for strt in po_strts:
             if strt is not None:
                 strt_miss_suits = set()
@@ -406,7 +404,6 @@ class DiscardValue(object):
         num_suits = len(set(self.held_s))
         if num_suits > 1:
             return 0
-
 
         ways_cnt = 0
         ways_cnt -= self.royal_flush()
@@ -430,12 +427,12 @@ class DiscardValue(object):
     def pair_jqka(self):
         # nothing held
         if self.held_r_cnts == []:
-            draw5 = self.draw_for_ranks( gsize=2, cnt_held_only=False,
+            draw5 = self._draw_for_ranks( gsize=2, cnt_held_only=False,
                                         pairing_jqka=True)
             return draw5
         # most common card is a singleton
         elif self.held_r_cnts[0][1] == 1:
-            draws = self.draw_for_ranks(gsize=2, cnt_held_only=False,
+            draws = self._draw_for_ranks(gsize=2, cnt_held_only=False,
                                         pairing_jqka=True)
             return draws
         elif self.held_r_cnts[0][1] == 2:
@@ -448,7 +445,7 @@ class DiscardValue(object):
                 return 0
 
             #holding pair of jkqa find everything that DOESN'T improve hand
-            return self.count_ways2kick(num_kickers = self.draw_cnt)
+            return self._count_ways2kick(num_kickers = self.draw_cnt)
         else:
             return 0
 
@@ -462,15 +459,13 @@ class DiscardValue(object):
 
         # nothing held
         if self.held_r_cnts == []:
-            return self.draw_2pair(self.nonheld_rank_grps, draw_cnt = 5)
+            return self._draw_2pair(draw_cnt = 5)
         # most common card is a singleton
         elif self.held_r_cnts[0][1] == 1:
             ways_cnt = 0
             if self.draw_cnt == 4:
                 #draw two pairs from the deck
-                ways_cnt += self.draw_2pair(self.nonheld_rank_grps, draw_cnt = 4)
-
-
+                ways_cnt += self._draw_2pair(draw_cnt = 4)
                 #pair up held singleton, draw a pair
                 #TODO: possibly replace this block with a call to draw_for_ranks?
                 held_draws = list(held_r_avail.values())[0] # ok since only holding 1
@@ -478,7 +473,7 @@ class DiscardValue(object):
                     rways = rcnt * comb(avail, 2)
                     new_nhrg = self.nonheld_rank_grps.copy()
                     new_nhrg[avail] -= 1
-                    kick_ways = self.count_ways2kick(nonheld_rank_grps = new_nhrg,
+                    kick_ways = self._count_ways2kick(nonheld_rank_grps = new_nhrg,
                                                      num_kickers = 1)
                     ways_cnt += held_draws * rways * kick_ways
 
@@ -489,19 +484,19 @@ class DiscardValue(object):
                     #pair up a held card
                     hrways = comb(hrcnt, 1) * comb(havail, 1)
                     #then draw a pair
-                    drawways = self.draw_for_ranks(gsize=2, draw_cnt=2,
+                    drawways = self._draw_for_ranks(gsize=2, draw_cnt=2,
                                                    draw_only=True,
                                                    second_pair=False)
                     ways_cnt += hrways * drawways
-
                     #draw a match for both held singles
                     hrways2 = comb(havail, 1) ** hrcnt
-                    kick_ways = self.count_ways2kick(num_kickers=1)
+                    kick_ways = self._count_ways2kick(num_kickers=1)
                     ways_cnt += hrways2 * kick_ways
                 return ways_cnt
             elif self.draw_cnt == 2:
                 #draw a match for 2 of the 3 held singles
-                return self.draw_2pair(held_r_avail_grps, draw_cnt = 2)
+                return self._draw_2pair(nonheld_rank_grps = held_r_avail_grps,
+                                       draw_cnt = 2)
 
             else:
                 return 0
@@ -510,23 +505,27 @@ class DiscardValue(object):
             #check for holding two pair
             if (len(self.held_r_cnts) > 1) and (self.held_r_cnts[1][1] == 2):
                 #find everything that DOESN't improve hand
-                return self.count_ways2kick(num_kickers = self.draw_cnt)
+                return self._count_ways2kick(num_kickers = self.draw_cnt)
             else:
                 #holding a pair. take it out of consideration and look for another
-                return self.draw_for_ranks(gsize=2, second_pair=True)
+                return self._draw_for_ranks(gsize=2, second_pair=True)
         else:
             return 0
 
 
 
-    def draw_2pair(self, nonheld_rank_grps, draw_cnt = 4):
+    def _draw_2pair(self, nonheld_rank_grps = None, draw_cnt = 4):
         """
         helper for two_pair, originally designed for drawing 2 pairs when,
         drawing 4 or 5 cards.
         there's a mostly symmetrical case for drawing 2 cards and holding
         3 singletons and pairing up 2 of those. so if draw_cnt = 2 then
-        choose 1 card from the number available within a rank.
+        choose 1 card from the number available within a rank. (in this case,
+        nonheld_rank_grps != self.nonheld_rank_grps, so pass as keyword)
         """
+        if nonheld_rank_grps is None:
+            nonheld_rank_grps = self.nonheld_rank_grps
+
         if draw_cnt in [4, 5]:
             choose_in_r = 2
         elif draw_cnt == 2:
@@ -544,7 +543,7 @@ class DiscardValue(object):
                 if draw_cnt == 5:
                     new_nhrg = nonheld_rank_grps.copy()
                     new_nhrg[avail1] -= 2
-                    kick_ways = self.count_ways2kick(nonheld_rank_grps = new_nhrg,
+                    kick_ways = self._count_ways2kick(nonheld_rank_grps = new_nhrg,
                                                      num_kickers = 1)
                 else:
                     kick_ways = 1
@@ -557,13 +556,12 @@ class DiscardValue(object):
                     new_nhrg = nonheld_rank_grps.copy()
                     new_nhrg[avail1] -= 1
                     new_nhrg[avail2] -= 1
-                    kick_ways = self.count_ways2kick(nonheld_rank_grps = new_nhrg,
+                    kick_ways = self._count_ways2kick(nonheld_rank_grps = new_nhrg,
                                                      num_kickers = 1)
                 else:
                     kick_ways = 1
 
                 ways_cnt += mixpair * kick_ways
-
 
         return ways_cnt
 
@@ -571,7 +569,7 @@ class DiscardValue(object):
     def three_kind(self):
         # nothing held or most common card is a singleton
         if self.held_r_cnts == [] or self.held_r_cnts[0][1] == 1:
-            draw = self.draw_for_ranks(gsize=3, cnt_held_only=False)
+            draw = self._draw_for_ranks(gsize=3, cnt_held_only=False)
             return draw
 
         elif self.held_r_cnts[0][1] == 2:
@@ -579,7 +577,7 @@ class DiscardValue(object):
             if (len(self.held_r_cnts) > 1) and (self.held_r_cnts[1][1] == 2):
                 return 0
 
-            drawp = self.draw_for_ranks(gsize=3, cnt_held_only=True)
+            drawp = self._draw_for_ranks(gsize=3, cnt_held_only=True)
             #if holding a pair and a 3rd card, e.g. 'AA7', drawing '77' will be
             #counted by draw_for_ranks, but this is FH, so subtract this.
             if (len(self.held_r_cnts) == 2) and (self.held_r_cnts[1][1] == 1):
@@ -594,9 +592,10 @@ class DiscardValue(object):
                 return 0
             else:
                 #find everything that DOESN't improve hand
-                return self.count_ways2kick(num_kickers = self.draw_cnt)
+                return self._count_ways2kick(num_kickers = self.draw_cnt)
         else:
             return 0
+
 
     def full_house(self):
         held_r_avail = {}
@@ -628,7 +627,7 @@ class DiscardValue(object):
                 held_draws = list(held_r_avail.values())[0] # ok since only holding 1
                 for heldneed, drawneed in [[1, 3], [2, 2]]:
                     up_held = comb(held_draws, heldneed)
-                    draw_grp = self.draw_for_ranks(gsize=drawneed,
+                    draw_grp = self._draw_for_ranks(gsize=drawneed,
                                                    draw_cnt=drawneed,
                                                    draw_only=True)
                     ways_cnt += up_held * draw_grp
@@ -652,10 +651,10 @@ class DiscardValue(object):
                 tripup_pair = comb(held_draws, 1)
                 if self.draw_cnt == 3:
                     #draw trips to go with pair
-                    ways_cnt += self.draw_for_ranks(gsize=3, draw_cnt=3,
+                    ways_cnt += self._draw_for_ranks(gsize=3, draw_cnt=3,
                                                     draw_only=True)
                     #draw pair to go with tripup pair
-                    draws = self.draw_for_ranks(gsize=2, draw_cnt=2,
+                    draws = self._draw_for_ranks(gsize=2, draw_cnt=2,
                                                 draw_only=True)
                 elif self.draw_cnt == 2:
                     sing_avail = self.__draws[self.held_r_cnts[1][0]]
@@ -678,7 +677,7 @@ class DiscardValue(object):
         elif self.held_r_cnts[0][1] == 3:
             #draw pair with trips,
             if self.draw_cnt == 2:
-                draw_pair = self.draw_for_ranks(gsize=2, draw_cnt=2,
+                draw_pair = self._draw_for_ranks(gsize=2, draw_cnt=2,
                                                 draw_only=True)
                 return draw_pair
             #trips + pairup held singleton
@@ -707,13 +706,13 @@ class DiscardValue(object):
             self.four_kind7()
         """
 
-        draw = self.draw_for_ranks(gsize=4, cnt_held_only=False)
+        draw = self._draw_for_ranks(gsize=4, cnt_held_only=False)
         if specials is None:
             return draw
         else:
             dec_cnt = 0
             for spec in specials:
-                dec_cnt += self.four_kind_special(spec)
+                dec_cnt += self._four_kind_special(spec)
             return draw - dec_cnt
 
 
@@ -721,16 +720,16 @@ class DiscardValue(object):
         """Bonus for four of kind with Aces or Eights"""
         ways_cnt = 0
         for spec in ['A', '8']:
-            ways_cnt += self.four_kind_special(spec)
+            ways_cnt += self._four_kind_special(spec)
         return ways_cnt
 
 
     def four_kind7(self):
         """Bonus for four of kind with Sevens"""
-        return self.four_kind_special('7')
+        return self._four_kind_special('7')
 
 
-    def four_kind_special(self, special_card):
+    def _four_kind_special(self, special_card):
         """
         special_card: (str) rank character that gets a bonus on four of a kind.
             e.g. 'A', '8', '7' for Aces and Eights payout table.
@@ -748,27 +747,34 @@ class DiscardValue(object):
 
 
     def straight(self):
+
+        def prod_list(lst):
+            accum = 1
+            for el in lst:
+                accum *= el
+            return accum
+
         ways_cnt = 0
         #subtract royal and straight flush from the count
         ways_cnt -= self.royal_flush()
         ways_cnt -= self.straight_flush()
         if self.held_r_cnts == []:
             for s in STRAIGHTS:
-                ways_cnt += self.prod_list([self.__draws[r] for r in s])
+                ways_cnt += prod_list([self.__draws[r] for r in s])
             return ways_cnt
         elif self.held_r_cnts[0][1] != 1:
             #holding a pair or more
             return 0
         else:
-            strts_cop, draws_cop = self.potential_straights()
+            strts_cop, draws_cop = self._potential_straights()
             for sc in strts_cop:
                 if sc is not None:
-                    ways_cnt += self.prod_list([draws_cop[r] for r in sc])
+                    ways_cnt += prod_list([draws_cop[r] for r in sc])
 
             return ways_cnt
 
 
-    def potential_straights(self, include_royals = True):
+    def _potential_straights(self, include_royals = True):
         """
         Helper func for hands with straights.
         Switches the strings in list of strings representing straights
@@ -792,15 +798,7 @@ class DiscardValue(object):
         return strts_cop, draws_cop
 
 
-    @staticmethod
-    def prod_list(lst):
-        """Helper function for straights"""
-        accum = 1
-        for el in lst:
-            accum *= el
-        return accum
-
-    def draw_for_ranks(self, gsize = 3, cnt_held_only = False,
+    def _draw_for_ranks(self, gsize = 3, cnt_held_only = False,
                        pairing_jqka = False, second_pair = False,
                        draw_cnt = None, draw_only = False):
         """
@@ -857,7 +855,7 @@ class DiscardValue(object):
                     if kickers > 0:
                         new_nhrg = nonheld_rank_grps_mod.copy()
                         new_nhrg[avail] -= 1
-                        kick_ways = self.count_ways2kick(nonheld_rank_grps = new_nhrg,
+                        kick_ways = self._count_ways2kick(nonheld_rank_grps = new_nhrg,
                                                          num_kickers = kickers)
                     else:
                         kick_ways = 1
@@ -881,11 +879,11 @@ class DiscardValue(object):
                     kickers = draw_cnt - needed
                     if kickers > 0:
                         if not second_pair:
-                            kick_ways = self.count_ways2kick(num_kickers = kickers,
+                            kick_ways = self._count_ways2kick(num_kickers = kickers,
                                         nonheld_rank_grps = nonheld_rank_grps_mod)
                         else:
                             sp_nhrg = nonheld_rank_grps_mod - Counter({nonheld_ranks_mod[r]:1})
-                            kick_ways = self.count_ways2kick(nonheld_rank_grps = sp_nhrg,
+                            kick_ways = self._count_ways2kick(nonheld_rank_grps = sp_nhrg,
                                                              num_kickers = kickers)
                     else:
                         kick_ways = 1
@@ -898,7 +896,7 @@ class DiscardValue(object):
         return ways_cnt
 
 
-    def count_ways2kick(self, nonheld_rank_grps = None, num_kickers = 1):
+    def _count_ways2kick(self, nonheld_rank_grps = None, num_kickers = 1):
         """
         Helper function for counting "kickers", that is cards that are drawn
         but are irrelevant to poker hand because other drawn cards already

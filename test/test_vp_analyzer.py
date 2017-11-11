@@ -137,11 +137,11 @@ class Test_vp_analyzer(unittest.TestCase):
 
     def test_draw_for_ranks(self):
         holdq = DiscardValue(held_d = self.h2.hold([True] + [False]*4))
-        h2d4r = holdq.draw_for_ranks(gsize = 3, cnt_held_only = False)
+        h2d4r = holdq._draw_for_ranks(gsize = 3, cnt_held_only = False)
         self.assertEqual(h2d4r, 4102)
 
         h3d4r = DiscardValue(held_d = self.h3.hold([False]*3 + [True]*2))
-        self.assertEqual(h3d4r.draw_for_ranks(gsize = 3), 1893)
+        self.assertEqual(h3d4r._draw_for_ranks(gsize = 3), 1893)
 
 
     def test_pair_jqka(self):
