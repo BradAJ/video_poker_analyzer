@@ -322,10 +322,7 @@ class DiscardValue(object):
             from the nominal four_kind count and call a method for each bonus.
 
         OUTPUT: (dict) e.g.:
-                {'royal_flush': (1, 178365), 'pair_jqka': (45456, 178365),
-                'four_kindA8': (0, 178365)}
-
-        TODO: move the exp_val_denom (e.g. 178365) elsewhere.
+                {'royal_flush': 1, 'pair_jqka': 45456, 'four_kindA8': 0}
         """
         if wins is None:
             wins = ['royal_flush','straight_flush','four_kind','full_house',
@@ -701,7 +698,7 @@ class DiscardValue(object):
             from the nominal four_kind count and call a method for each bonus.
 
             For example with Aces and Eights payouts, .analyze() will call:
-            self.four_kind( specials = ['A', '7', '8'])
+            self.four_kind(specials = ['A', '7', '8'])
             self.four_kindA8()
             self.four_kind7()
         """
@@ -710,18 +707,19 @@ class DiscardValue(object):
         if specials is None:
             return draw
         else:
-            dec_cnt = 0
-            for spec in specials:
-                dec_cnt += self._four_kind_special(spec)
-            return draw - dec_cnt
+            # dec_cnt = 0
+            # for spec in specials:
+            #     dec_cnt += self._four_kind_special(spec)
+            return draw - self._four_kind_special(specials)
 
 
     def four_kindA8(self):
         """Bonus for four of kind with Aces or Eights"""
-        ways_cnt = 0
-        for spec in ['A', '8']:
-            ways_cnt += self._four_kind_special(spec)
-        return ways_cnt
+        # ways_cnt = 0
+        # for spec in ['A', '8']:
+        #     ways_cnt += self._four_kind_special(spec)
+        # return ways_cnt
+        return self._four_kind_special('A8')
 
 
     def four_kind7(self):
@@ -729,21 +727,24 @@ class DiscardValue(object):
         return self._four_kind_special('7')
 
 
-    def _four_kind_special(self, special_card):
+    def _four_kind_special(self, special_cards):
         """
         special_card: (str) rank character that gets a bonus on four of a kind.
             e.g. 'A', '8', '7' for Aces and Eights payout table.
         need to specify these special cards for the main four_kind method to
         avoid double counting them.
         """
-        kickers = len(self.disc_r) - self.__draws[special_card]
-        if (kickers < 0) or (special_card in self.disc_r):
-            return 0
-        elif kickers == 0:
-            return 1
-        else:
-            #47 draw cards to start, drawing 5 draw the 4 specials and 1 kicker
-            return 47 - self.__draws[special_card]
+        ways_cnt = 0
+        for special_card in special_cards:
+            kickers = len(self.disc_r) - self.__draws[special_card]
+            if (kickers < 0) or (special_card in self.disc_r):
+                continue
+            elif kickers == 0:
+                ways_cnt += 1
+            else:
+                #47 draw cards to start, drawing 5 draw the 4 specials and 1 kicker
+                ways_cnt += 47 - self.__draws[special_card]
+        return ways_cnt
 
 
     def straight(self):
