@@ -35,7 +35,7 @@ class HandAnalyzer(object):
     """
 
     def __init__(self, hand, payouts = None):
-        self.__specials = [] #special 4kinds ranks see: DiscardValue._four_kind_special()
+        self.__specials = '' #special 4kinds ranks see: DiscardValue._four_kind_special()
         if payouts is None:
             #Payout for "9-6 Jacks or Better Video Poker"
             self.payouts = {'pair_jqka': 1, 'two_pair': 2, 'three_kind': 3,
@@ -43,10 +43,12 @@ class HandAnalyzer(object):
                             'four_kind': 25, 'straight_flush': 50,
                             'royal_flush': 800}
         else:
-            if 'four_kindA8' in payouts:
-                self.__specials.extend(['A', '8'])
-            if 'four_kind7' in payouts:
-                self.__specials.append('7')
+            #Bonus four_kind: (A8, 7 in Aces and Eights), (A, 234, in Triple Bonus Plus)
+            bonuses = ['A8', '7', 'A', '234']
+            for bonus in bonuses:
+                fourk_bonus = 'four_kind' + bonus
+                if fourk_bonus in payouts:
+                    self.__specials += bonus
             self.payouts = payouts
 
         #rewrite hand string as list of 5 cards of 2 chars
@@ -338,7 +340,9 @@ class DiscardValue(object):
                         'two_pair': self.two_pair,
                         'pair_jqka': self.pair_jqka,
                         'four_kindA8': self.four_kindA8,
-                        'four_kind7': self.four_kind7}
+                        'four_kind7': self.four_kind7,
+                        'four_kindA': self.four_kindA,
+                        'four_kind234': self.four_kind234}
         wins_d = {}
         for win in wins:
             if (specials is not None) and (win == 'four_kind'):
@@ -707,24 +711,25 @@ class DiscardValue(object):
         if specials is None:
             return draw
         else:
-            # dec_cnt = 0
-            # for spec in specials:
-            #     dec_cnt += self._four_kind_special(spec)
             return draw - self._four_kind_special(specials)
 
 
     def four_kindA8(self):
         """Bonus for four of kind with Aces or Eights"""
-        # ways_cnt = 0
-        # for spec in ['A', '8']:
-        #     ways_cnt += self._four_kind_special(spec)
-        # return ways_cnt
         return self._four_kind_special('A8')
 
 
     def four_kind7(self):
         """Bonus for four of kind with Sevens"""
         return self._four_kind_special('7')
+
+    def four_kindA(self):
+        """Bonus for Aces (used in Triple Bonus Plus)"""
+        return self._four_kind_special('A')
+
+    def four_kind234(self):
+        """Bonus for 2,3,4 (used in Triple Bonus Plus)"""
+        return self._four_kind_special('234')
 
 
     def _four_kind_special(self, special_cards):

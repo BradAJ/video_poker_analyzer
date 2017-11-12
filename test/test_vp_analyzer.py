@@ -16,6 +16,12 @@ class Test_vp_analyzer(unittest.TestCase):
                         'four_kind': 25, 'four_kind7':50, 'four_kindA8':80,
                         'straight_flush': 50, 'royal_flush': 800}
 
+        self.tripbonusplus_d = {'pair_jqka': 1, 'two_pair': 1, 'three_kind': 3,
+                        'straight': 4, 'flush': 5, 'full_house': 9,
+                        'four_kind': 50, 'four_kind234':120, 'four_kindA':240,
+                        'straight_flush': 100, 'royal_flush': 800}
+
+
     #TODO: test count_wins (currently tested indirectly via HandAnalyzer.analyze)
 
 
@@ -194,6 +200,18 @@ class Test_vp_analyzer(unittest.TestCase):
         j6disc = DiscardValue(held_d=junk6.hold([False]*5))
         self.assertEqual(j6disc.four_kind(specials=spec), 215)
 
+        h2tbp = HandAnalyzer(''.join(self.h2.hand), payouts = self.tripbonusplus_d)
+        h2tbpholdq = DiscardValue(held_d=h2tbp.hold([True]+[False]*4))
+        h2tbpholdq8 = DiscardValue(held_d=h2tbp.hold([True,False,True]+[False]*2))
+        spec_tbp = 'A234'
+        self.assertEqual(h2tbpholdq.four_kind(specials=spec_tbp), 49)
+        self.assertEqual(h2tbpholdq8.four_kind(specials=spec_tbp), 2)
+
+        junk6tbp = HandAnalyzer('tc9d6h5s2c', payouts = self.tripbonusplus_d)
+        j6disctbp = DiscardValue(held_d=junk6tbp.hold([False]*5))
+        self.assertEqual(j6disctbp.four_kind(specials=spec_tbp), 215)
+
+
     def test_two_pair(self):
         twop = HandAnalyzer('acad8h8s2c')
         twopdv1 = DiscardValue(held_d=twop.hold([True]*4 + [False]))
@@ -342,3 +360,25 @@ class Test_vp_analyzer(unittest.TestCase):
         junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.aces8s_d)
         junk6dv = DiscardValue(held_d=junk6.hold([False]*5))
         self.assertEqual(junk6dv.four_kind7(), 43)
+
+    def test_four_kindA(self):
+        h2tbp = HandAnalyzer(''.join(self.h2.hand), payouts = self.tripbonusplus_d)
+        h2tbpdv = DiscardValue(held_d=h2tbp.hold([True]+[False]*4))
+        self.assertEqual(h2tbpdv.four_kindA(), 1)
+        h2tbpdv2 = DiscardValue(held_d=h2tbp.hold([True,False,True]+[False]*2))
+        self.assertEqual(h2tbpdv2.four_kindA(), 0)
+
+        junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.tripbonusplus_d)
+        junk6dv = DiscardValue(held_d=junk6.hold([False]*5))
+        self.assertEqual(junk6dv.four_kindA(), 43)
+
+    def test_four_kind234(self):
+        h2tbp = HandAnalyzer(''.join(self.h2.hand), payouts = self.tripbonusplus_d)
+        h2tbpdv = DiscardValue(held_d=h2tbp.hold([True]+[False]*4))
+        self.assertEqual(h2tbpdv.four_kind234(), 2)
+        h2tbpdv2 = DiscardValue(held_d=h2tbp.hold([True,False,True]+[False]*2))
+        self.assertEqual(h2tbpdv2.four_kind234(), 0)
+
+        junk6 = HandAnalyzer('tc9d6h5s2c', payouts = self.tripbonusplus_d)
+        junk6dv = DiscardValue(held_d=junk6.hold([False]*5))
+        self.assertEqual(junk6dv.four_kind234(), 86)
