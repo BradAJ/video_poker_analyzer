@@ -47,6 +47,16 @@ class Test_vp_analyzer(unittest.TestCase):
         exp_val_holdq = h2_plays['QdXXXXXXXX']['expected_val']
         self.assertEqual(round(exp_val_holdq, 5), round(0.4741961707734, 5))
 
+        h2_plays_bdc = self.h2.analyze(return_full_analysis = False,
+                                       return_bestdisc_cnts = True)
+
+        h2_bdc_out = {'QdXXXXXXXX': {'full_house': 288.0, 'three_kind': 4102.0,
+        'four_kind': 52.0, 'straight': 590, 'straight_flush': 1, 'royal_flush': 1,
+        'expected_val': 0.47419617077341408, 'flush': 328.0, 'pair_jqka': 45456.0,
+        'two_pair': 8874.0}}
+        self.assertEqual(h2_plays_bdc, h2_bdc_out)
+
+
         exp_val_holdq8 = h2_plays['QdXX8dXXXX']['expected_val']
         self.assertEqual(round(exp_val_holdq8, 5), round(0.41036077705827, 5))
 
@@ -71,12 +81,14 @@ class Test_vp_analyzer(unittest.TestCase):
         exp_val_j6 = j6_plays[disc_all]['expected_val']
         j6_disc_ev = 0.3588441261353939
         self.assertEqual(round(exp_val_j6, 5), round(j6_disc_ev, 5))
-        j6_best = junk6.analyze(return_full_analysis = False)
+        j6_best = junk6.analyze(return_full_analysis = False,
+                                return_bestdisc_cnts = False)
         self.assertEqual(j6_best[0], ''.join(disc_all))
         self.assertEqual(round(j6_best[1], 5), round(j6_disc_ev, 5))
 
         aaa = HandAnalyzer('ACADAH9CQH',payouts = self.aces8s_d)
-        aaa_best = aaa.analyze(return_full_analysis = False)
+        aaa_best = aaa.analyze(return_full_analysis = False,
+                               return_bestdisc_cnts = False)
         self.assertEqual(aaa_best[0], ''.join(('Ac', 'Ad', 'Ah', 'XX', 'XX')))
         self.assertEqual(round(aaa_best[1], 5), round(6.5818686401480111, 5))
 

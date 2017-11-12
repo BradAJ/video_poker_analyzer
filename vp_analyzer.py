@@ -74,7 +74,7 @@ class HandAnalyzer(object):
         return held_d
 
 
-    def analyze(self, return_full_analysis = True):
+    def analyze(self, return_full_analysis = True, return_bestdisc_cnts = True):
         """
         From each of the 32 possible hold/discard situations for a hand,
         calculate the number of ways of making each hand in self.payouts,
@@ -89,12 +89,17 @@ class HandAnalyzer(object):
             discard strategy contains a dict of count info as a tuple of
             (count, total number of results) for each winning hand.
                              == False: Only return the discard strategy with the
-            highest expected value (prefer more discards in case of ties) and
-            that expected value as a tuple. This minimal return size is useful
-            for work that analyzes large numbers of hands.
+            highest expected value (prefer more discards in case of ties).
 
             In both cases the discard strategy is represented as a 10 character
             string, where the discarded cards are represented by 'XX'.
+
+        return_bestdisc_cnts == True: Return the win counts dict from best
+            discard strategy. return_bestdisc_cnts is ignored if
+            return_full_analysis == True.
+                        == False: Return just the best discard string and its
+            expected value as a tuple. This minimal return size is useful for
+            work that analyzes large numbers of hands.
         """
 
         win_props = {}
@@ -117,7 +122,11 @@ class HandAnalyzer(object):
         if return_full_analysis:
             return win_props
         else:
-            return self.best_disc(win_props)
+            besthold_tup = self.best_disc(win_props)
+            if return_bestdisc_cnts:
+                return {besthold_tup[0]: win_props[besthold_tup[0]]}
+            else:
+                return besthold_tup
 
 
     @staticmethod
@@ -131,8 +140,6 @@ class HandAnalyzer(object):
         best_ev_disc = 0
         for holddisc in results:
             cur_ev = results[holddisc]['expected_val']
-
-            equal_bool = () and (cur_disc > best_ev_disc)
             if cur_ev > max_ev:
                 besthold = holddisc
                 max_ev = cur_ev
@@ -928,4 +935,4 @@ class DiscardValue(object):
         return kick_cnt
 
 if __name__ == '__main__':
-    print(HandAnalyzer('7c7h7d8s7s').analyze(return_full_analysis=True))
+    print(HandAnalyzer('qd9c8d5c2c').analyze(return_full_analysis=False, return_bestdisc_cnts = True))
